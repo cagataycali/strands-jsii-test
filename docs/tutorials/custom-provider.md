@@ -1,6 +1,6 @@
 # Tutorial: Add a Custom Model Provider
 
-The SDK ships with four providers (Bedrock, Anthropic, OpenAI, Gemini), but you can connect to any LLM API by extending `ModelProvider`. This tutorial shows you how.
+The SDK ships with five providers (Bedrock, Anthropic, OpenAI, Gemini, Ollama), but you can connect to any LLM API by extending `ModelProvider`. This tutorial shows you how.
 
 ## When You Need This
 

@@ -68,7 +68,7 @@ The loop is identical across all five languages — it lives in `agent.ts` and j
 
 ## How Model Providers Work
 
-All four providers (Bedrock, Anthropic, OpenAI, Gemini) normalize to the same response format internally. The agent loop doesn't care which provider you use.
+All five providers (Bedrock, Anthropic, OpenAI, Gemini, Ollama) normalize to the same response format internally. The agent loop doesn't care which provider you use.
 
 Why `execSync` and `curl`? jsii methods must be **synchronous**. Bedrock uses `execSync` to call a child Node.js process with the AWS SDK. The other providers use `curl` via `execSync`. This keeps the jsii contract clean while supporting HTTP under the hood.
 
@@ -79,7 +79,7 @@ strands-jsii/
 ├── src/                          # TypeScript source (single source of truth)
 │   ├── agent.ts                  # Agent loop + .ask() + .toolCall()
 │   ├── strands.ts                # Universal Strands.* factory class
-│   ├── models/                   # Bedrock, Anthropic, OpenAI, Gemini providers
+│   ├── models/                   # Bedrock, Anthropic, OpenAI, Gemini, Ollama providers
 │   ├── tools/                    # FunctionTool, ToolBuilder, Registry, Watcher, AgentTool
 │   ├── conversation/             # Sliding window, summarizing managers
 │   ├── hooks/                    # Callbacks + hook registry

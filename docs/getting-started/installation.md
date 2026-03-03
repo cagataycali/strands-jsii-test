@@ -55,7 +55,7 @@ export AWS_DEFAULT_REGION=us-west-2
 ```
 
 !!! tip "Don't have AWS credentials?"
-    You can use any of the four providers. See [Model Providers](../providers/overview.md) for Anthropic, OpenAI, and Gemini setup.
+    You can use any of the other providers. See [Model Providers](../providers/overview.md) for Anthropic, OpenAI, and Gemini setup.
 
 ## Language Requirements
 

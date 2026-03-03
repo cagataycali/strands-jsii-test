@@ -165,6 +165,7 @@ Model thinks. Tools act. Loop until done. This is the heartbeat.
 |-------|---------|
 | `Agent` / `StrandsAgent` | The agent. Model + tools + conversation + hooks. |
 | `Bedrock` / `BedrockModelProvider` | Amazon Bedrock (default provider) |
+| `Ollama` / `OllamaModelProvider` | Local inference via Ollama |
 | `FunctionTool` | Wraps a handler as a tool (cross-language) |
 | `ToolRegistry` | Runtime tool storage — add, remove, lookup |
 | `ToolWatcher` | Directory watcher — hot-reloads `.py` as tools |
@@ -273,7 +274,8 @@ var tool = Sugar.toolOf("greet", "Greet someone",
 | **Anthropic** | `Anthropic(api_key="…")` | `Anthropic({apiKey:"…"})` | `Strands.anthropic(…)` | `Strands.Anthropic(…)` |
 | **OpenAI** | `OpenAI(api_key="…")` | `OpenAI({apiKey:"…"})` | `Strands.openai(…)` | `Strands.Openai(…)` |
 | **Gemini** | `Gemini(api_key="…")` | `Gemini({apiKey:"…"})` | `Strands.gemini(…)` | `Strands.Gemini(…)` |
-| **Ollama** | `Ollama()` | `Strands.ollama()` | `Strands.ollama()` | `Strands.Ollama()` || **Custom** | Extend `ModelProvider` | Extend `ModelProvider` | Extend `ModelProvider` | Extend `ModelProvider` |
+| **Ollama** | `Ollama()` | `Strands.ollama()` | `Strands.ollama()` | `Strands.Ollama()` |
+| **Custom** | Extend `ModelProvider` | Extend `ModelProvider` | Extend `ModelProvider` | Extend `ModelProvider` |
 
 <details>
 <summary><b>📦 All five languages</b></summary>
@@ -285,6 +287,9 @@ from strands_jsii import Agent, Bedrock, Anthropic, OpenAI, Gemini
 
 # Default — Claude on Bedrock, zero config
 agent = Agent()
+
+# Ollama (local, no API key)
+agent = Agent(model=Ollama())
 
 # Bedrock with options
 agent = Agent(model=Bedrock(
@@ -449,7 +454,7 @@ agent = Agent(hooks=hooks)
 from strands_jsii import RetryStrategy
 
 agent = Agent(retry_strategy=RetryStrategy(
-    max_retries=3,
+    max_attempts=3,
     initial_delay=1.0,
     backoff_multiplier=2.0,
 ))
@@ -469,7 +474,9 @@ strands-jsii/
 │   ├── conversation/             #   Sliding window, summarizing
 │   ├── hooks/                    #   Callbacks, hooks, lifecycle events
 │   ├── errors/                   #   Typed errors, retry strategies
-│   └── safety/                   #   Guardrails
+│   ├── safety/                   #   Guardrails
+│   ├── providers/                #   Shared format definitions (Anthropic, OpenAI, Gemini, Ollama)
+│   └── utils/                    #   Identifier generation
 ├── scripts/
 │   ├── patch-python.py           #   Python-only: @tool, __call__, agent.tool.X()
 │   ├── patch-typescript.ts       #   JS-only: callable Agent(), Proxy, tool()
