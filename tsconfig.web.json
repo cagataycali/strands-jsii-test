@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "outDir": "dist/web",
+    "rootDir": "src",
+    "target": "es2020",
+    "module": "es2020",
+    "moduleResolution": "bundler",
+    "lib": ["es2020", "dom"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "noEmitOnError": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/web/**/*.ts",
+    "src/types/**/*.ts",
+    "src/errors/base.ts",
+    "src/errors/classifier.ts",
+    "src/tools/definition.ts",
+    "src/tools/function-tool.ts",
+    "src/tools/registry.ts",
+    "src/tools/caller.ts",
+    "src/tools/agent-tool.ts",
+    "src/tools/universal-factory.ts",
+    "src/conversation/**/*.ts",
+    "src/hooks/handler.ts",
+    "src/hooks/hooks.ts",
+    "src/safety/guardrails.ts",
+    "src/utils/**/*.ts"
+  ],
+  "exclude": [
+    "src/models/**",
+    "src/tools/watcher.ts",
+    "src/errors/retry.ts",
+    "src/hooks/printing.ts",
+    "src/agent.ts",
+    "src/strands.ts",
+    "src/index.ts"
+  ]
+}

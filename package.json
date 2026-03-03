@@ -14,7 +14,10 @@
     "package:go": "jsii-pacmak --targets go",
     "package:all": "jsii-pacmak",
     "test": "jest --no-coverage",
-    "clean": "rm -rf lib dist .jsii tsconfig.json node_modules"
+    "clean": "rm -rf lib dist .jsii tsconfig.json node_modules",
+    "build:web": "esbuild src/web/index.ts --bundle --format=esm --target=es2020 --platform=browser --outfile=dist/strands-jsii.web.mjs --minify --sourcemap",
+    "build:web:debug": "esbuild src/web/index.ts --bundle --format=esm --target=es2020 --platform=browser --outfile=dist/strands-jsii.web.debug.mjs --sourcemap",
+    "serve:demo": "npx http-server dist -p 8080 --cors -c-1"
   },
   "stability": "experimental",
   "author": {
@@ -62,15 +65,15 @@
     "@aws-sdk/client-bedrock-runtime": "^3.943.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "esbuild": "^0.27.3",
+    "jest": "^29.0.0",
     "jsii": "~5.9.0",
     "jsii-pacmak": "^1.106.0",
     "jsii-rosetta": "~5.9.0",
-    "jest": "^29.0.0",
-    "@types/jest": "^29.0.0",
     "ts-jest": "^29.0.0",
     "typescript": "~5.7.0"
   },
-  "peerDependencies": {},
   "keywords": [
     "strands",
     "agents",
@@ -87,6 +90,13 @@
       "require": "./lib/index.js",
       "import": "./lib/index.js",
       "types": "./lib/index.d.ts"
+    },
+    "./web": {
+      "import": "./dist/strands-jsii.web.mjs",
+      "types": "./dist/web/web/index.d.ts"
     }
-  }
+  },
+  "bundleDependencies": [
+    "@aws-sdk/client-bedrock-runtime"
+  ]
 }
