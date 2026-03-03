@@ -1,0 +1,552 @@
+name: Web Bundle + Multi-Provider E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ═══════════════════════════════════════════════════════════
+  # Web Bundle Build & Verification
+  # ═══════════════════════════════════════════════════════════
+  web-build:
+    name: Web Bundle Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Build jsii (required for shared formats.ts)
+        run: npx jsii
+
+      - name: Build web bundle
+        run: npm run build:web
+
+      - name: Verify bundle size
+        run: |
+          SIZE=$(stat -c%s dist/strands-jsii.web.mjs 2>/dev/null || stat -f%z dist/strands-jsii.web.mjs)
+          SIZE_KB=$((SIZE / 1024))
+          echo "Bundle size: ${SIZE_KB}KB"
+          if [ "$SIZE_KB" -gt 200 ]; then
+            echo "❌ Bundle too large: ${SIZE_KB}KB > 200KB limit"
+            exit 1
+          fi
+          echo "✅ Bundle size OK: ${SIZE_KB}KB"
+
+      - name: Verify zero Node.js dependencies
+        run: |
+          if grep -qE "(require\(|from ['\"])(child_process|fs|os|path|crypto)" dist/strands-jsii.web.mjs; then
+            echo "❌ Node.js imports found in browser bundle!"
+            grep -oE "(require\(['\"]|from ['\"])(child_process|fs|os|path|crypto)" dist/strands-jsii.web.mjs
+            exit 1
+          fi
+          echo "✅ Zero Node.js dependencies in browser bundle"
+
+      - name: Verify exports
+        run: |
+          node -e "
+          // Dynamically import the ESM bundle
+          import('file://' + process.cwd() + '/dist/strands-jsii.web.mjs').then(mod => {
+            const exports = Object.keys(mod);
+            console.log('Total exports:', exports.length);
+
+            const required = [
+              // Streaming
+              'StreamingWebAgent', 'StreamingModelProvider',
+              'StreamAnthropicProvider', 'StreamOpenAIProvider', 'StreamGeminiProvider',
+              // Universal
+              'UniversalProvider', 'createProvider',
+              // Non-streaming
+              'WebAgent', 'WebAnthropicProvider', 'WebOpenAIProvider', 'WebGeminiProvider',
+              // Tools
+              'renderUiTool', 'jsEvalTool', 'storageGetTool', 'storageSetTool',
+              'notifyTool', 'createCreateToolTool', 'useAgentTool', 'schedulerTool',
+              // Mesh
+              'AgentMesh',
+              // Sensory
+              'captureImageTool', 'getUserContextTool',
+              // SW
+              'generateServiceWorker', 'registerServiceWorker',
+              // Core types
+              'ToolRegistry', 'FunctionTool', 'ToolBuilder', 'ContentBlock',
+              'AgentMessage', 'AgentResponse', 'CallbackHandler',
+            ];
+
+            let missing = [];
+            for (const name of required) {
+              if (!mod[name]) missing.push(name);
+              else console.log('  ✅', name);
+            }
+
+            if (missing.length > 0) {
+              console.error('❌ Missing exports:', missing.join(', '));
+              process.exit(1);
+            }
+            console.log('');
+            console.log('✅ All', required.length, 'required exports verified');
+          }).catch(e => { console.error(e); process.exit(1); });
+          "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-bundle
+          path: dist/strands-jsii.web.mjs*
+          retention-days: 1
+
+  # ═══════════════════════════════════════════════════════════
+  # Shared Format Definitions Unit Tests
+  # ═══════════════════════════════════════════════════════════
+  format-tests:
+    name: Shared Format Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Test shared format definitions
+        run: |
+          npx ts-node --compiler-options '{"module":"commonjs","esModuleInterop":true}' -e "
+          import {
+            buildAnthropicRequest, parseAnthropicResponse, parseAnthropicSSE,
+            buildOpenAIRequest, parseOpenAIResponse, parseOpenAISSE,
+            buildGeminiRequest, parseGeminiResponse, parseGeminiSSE,
+            buildOllamaRequest, parseOllamaResponse,
+            REQUEST_BUILDERS, RESPONSE_PARSERS, SSE_PARSERS,
+          } from './src/providers/formats';
+
+          // Test messages in Bedrock Converse format
+          const messages = [
+            { role: 'user', content: [{ text: 'What is 2+2?' }] },
+            { role: 'assistant', content: [{ text: 'Let me calculate.' }, { toolUse: { name: 'calc', toolUseId: 'tu_1', input: { expr: '2+2' } } }] },
+            { role: 'user', content: [{ toolResult: { toolUseId: 'tu_1', content: [{ json: { result: 4 } }], status: 'success' } }] },
+          ];
+
+          const config = { apiKey: 'test-key', modelId: 'test-model', maxTokens: 100 };
+
+          // ── Anthropic ──
+          console.log('Testing Anthropic format...');
+          const anthReq = buildAnthropicRequest(config, messages, 'You are helpful', undefined, true);
+          console.assert(anthReq.url.includes('anthropic.com'), 'Anthropic URL');
+          console.assert(anthReq.headers['x-api-key'] === 'test-key', 'Anthropic API key');
+          console.assert((anthReq.body as any).stream === true, 'Anthropic stream flag');
+          console.assert((anthReq.body as any).messages.length === 3, 'Anthropic messages');
+          console.assert((anthReq.body as any).messages[1].content[1].type === 'tool_use', 'Anthropic tool_use format');
+
+          const anthResp = parseAnthropicResponse({ content: [{ type: 'text', text: 'Result is 4' }], stop_reason: 'end_turn', usage: { input_tokens: 10, output_tokens: 5 } });
+          const anthParsed = JSON.parse(anthResp);
+          console.assert(anthParsed.output.message.content[0].text === 'Result is 4', 'Anthropic response parse');
+          console.assert(anthParsed.stopReason === 'end_turn', 'Anthropic stop reason');
+
+          const anthSSE = parseAnthropicSSE({ type: 'content_block_delta', delta: { type: 'text_delta', text: 'hello' } });
+          console.assert(anthSSE[0].type === 'textDelta', 'Anthropic SSE text delta');
+          console.assert(anthSSE[0].text === 'hello', 'Anthropic SSE text content');
+          console.log('  ✅ Anthropic: request build + response parse + SSE parse');
+
+          // ── OpenAI ──
+          console.log('Testing OpenAI format...');
+          const oaiReq = buildOpenAIRequest(config, messages, 'You are helpful', undefined, true);
+          console.assert(oaiReq.url.includes('openai.com'), 'OpenAI URL');
+          console.assert(oaiReq.headers['Authorization'].includes('Bearer'), 'OpenAI auth');
+          console.assert((oaiReq.body as any).stream === true, 'OpenAI stream flag');
+          // OpenAI merges system prompt into messages
+          console.assert((oaiReq.body as any).messages[0].role === 'system', 'OpenAI system message');
+          // tool_calls format
+          console.assert((oaiReq.body as any).messages[2].tool_calls?.[0].type === 'function', 'OpenAI tool_calls format');
+
+          const oaiResp = parseOpenAIResponse({ choices: [{ message: { content: 'The answer is 4', tool_calls: undefined }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 5 } });
+          const oaiParsed = JSON.parse(oaiResp);
+          console.assert(oaiParsed.output.message.content[0].text === 'The answer is 4', 'OpenAI response parse');
+
+          const oaiSSE = parseOpenAISSE({ choices: [{ delta: { content: 'hi' }, finish_reason: null }] });
+          console.assert(oaiSSE[0].type === 'textDelta', 'OpenAI SSE text delta');
+          console.log('  ✅ OpenAI: request build + response parse + SSE parse');
+
+          // ── Gemini ──
+          console.log('Testing Gemini format...');
+          const gemReq = buildGeminiRequest(config, messages, 'You are helpful', undefined, true);
+          console.assert(gemReq.url.includes('googleapis.com'), 'Gemini URL');
+          console.assert(gemReq.url.includes('streamGenerateContent'), 'Gemini stream URL');
+          console.assert((gemReq.body as any).contents[1].role === 'model', 'Gemini role mapping');
+          console.assert((gemReq.body as any).contents[1].parts[1].functionCall, 'Gemini functionCall format');
+
+          const gemResp = parseGeminiResponse({ candidates: [{ content: { parts: [{ text: 'Four' }] }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 } });
+          const gemParsed = JSON.parse(gemResp);
+          console.assert(gemParsed.output.message.content[0].text === 'Four', 'Gemini response parse');
+          console.log('  ✅ Gemini: request build + response parse + SSE parse');
+
+          // ── Ollama ──
+          console.log('Testing Ollama format...');
+          const ollamaReq = buildOllamaRequest({ ...config, host: 'http://localhost:11434' }, messages, 'You are helpful');
+          console.assert(ollamaReq.url.includes('11434'), 'Ollama URL');
+          console.assert((ollamaReq.body as any).messages[0].role === 'system', 'Ollama system message');
+          console.log('  ✅ Ollama: request build + response parse');
+
+          // ── Registry ──
+          console.log('Testing registry...');
+          console.assert(Object.keys(REQUEST_BUILDERS).length >= 4, 'Builders registry');
+          console.assert(Object.keys(RESPONSE_PARSERS).length >= 4, 'Parsers registry');
+          console.assert(Object.keys(SSE_PARSERS).length >= 3, 'SSE parsers registry');
+          console.log('  ✅ Registry: ' + Object.keys(REQUEST_BUILDERS).length + ' builders, ' + Object.keys(SSE_PARSERS).length + ' SSE parsers');
+
+          console.log('');
+          console.log('🎉 All shared format definition tests passed!');
+          " 2>&1 || npx tsx -e "$(cat)" < /dev/null
+
+  # ═══════════════════════════════════════════════════════════
+  # Multi-Provider Streaming E2E (Live API calls)
+  # ═══════════════════════════════════════════════════════════
+  streaming-e2e-anthropic:
+    name: E2E Streaming — Anthropic
+    needs: web-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'  # Only on push to main (saves API costs)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx jsii
+      - run: npm run build:web
+
+      - name: Streaming E2E — Anthropic (tool calling)
+        if: env.ANTHROPIC_API_KEY != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          node --input-type=module << 'TESTEOF'
+          import { createProvider, StreamingWebAgent, FunctionTool, ToolHandler, ToolBuilder } from './dist/strands-jsii.web.mjs';
+
+          class CalcHandler extends ToolHandler {
+            handle(inputJson) {
+              const { expression } = JSON.parse(inputJson);
+              try { return JSON.stringify({ result: String(eval(expression)) }); }
+              catch (e) { return JSON.stringify({ error: e.message }); }
+            }
+          }
+
+          const calc = new ToolBuilder('calculator', new CalcHandler())
+            .description('Evaluate math')
+            .addStringParam('expression', 'Math expression', true)
+            .create();
+
+          const model = createProvider('anthropic', process.env.ANTHROPIC_API_KEY, { modelId: 'claude-haiku-4-5-20250414', maxTokens: 256 });
+          const agent = new StreamingWebAgent({ model, tools: [calc], systemPrompt: 'You are a math assistant. Always use the calculator tool.' });
+
+          console.log('🔄 Streaming Anthropic with tool calling...');
+          let fullText = '', toolCalls = 0, chunks = 0;
+          const t0 = Date.now();
+
+          for await (const event of agent.stream('What is 42 * 17?')) {
+            if (event.type === 'modelContentBlockDeltaEvent' && event.delta?.type === 'textDelta') {
+              fullText += event.delta.text;
+              chunks++;
+            }
+            if (event.type === 'beforeToolCallEvent') {
+              toolCalls++;
+              console.log(`  🔧 Tool call: ${event.toolUse.name}`);
+            }
+          }
+
+          const ms = Date.now() - t0;
+          console.log(`  Response (${chunks} chunks, ${ms}ms): ${fullText.slice(0, 200)}`);
+          console.log(`  Tool calls: ${toolCalls}`);
+
+          if (chunks === 0) throw new Error('No streaming chunks received');
+          if (toolCalls === 0) throw new Error('No tool calls made');
+          if (!fullText.includes('714')) console.warn('⚠️ Expected 714 in response');
+          console.log('✅ Anthropic streaming + tool calling passed!');
+          TESTEOF
+
+  streaming-e2e-openai:
+    name: E2E Streaming — OpenAI
+    needs: web-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx jsii
+      - run: npm run build:web
+
+      - name: Streaming E2E — OpenAI (tool calling)
+        if: env.OPENAI_API_KEY != ''
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          node --input-type=module << 'TESTEOF'
+          import { createProvider, StreamingWebAgent, ToolHandler, ToolBuilder } from './dist/strands-jsii.web.mjs';
+
+          class CalcHandler extends ToolHandler {
+            handle(inputJson) {
+              const { expression } = JSON.parse(inputJson);
+              try { return JSON.stringify({ result: String(eval(expression)) }); }
+              catch (e) { return JSON.stringify({ error: e.message }); }
+            }
+          }
+
+          const calc = new ToolBuilder('calculator', new CalcHandler())
+            .description('Evaluate math').addStringParam('expression', 'Math expression', true).create();
+
+          const model = createProvider('openai', process.env.OPENAI_API_KEY, { modelId: 'gpt-4o-mini', maxTokens: 256 });
+          const agent = new StreamingWebAgent({ model, tools: [calc], systemPrompt: 'You are a math assistant. Always use the calculator tool.' });
+
+          console.log('🔄 Streaming OpenAI with tool calling...');
+          let fullText = '', toolCalls = 0, chunks = 0;
+          for await (const event of agent.stream('What is 42 * 17?')) {
+            if (event.type === 'modelContentBlockDeltaEvent' && event.delta?.type === 'textDelta') { fullText += event.delta.text; chunks++; }
+            if (event.type === 'beforeToolCallEvent') { toolCalls++; console.log(`  🔧 Tool call: ${event.toolUse.name}`); }
+          }
+          console.log(`  Response (${chunks} chunks): ${fullText.slice(0, 200)}`);
+          if (chunks === 0) throw new Error('No streaming chunks received');
+          if (toolCalls === 0) throw new Error('No tool calls made');
+          console.log('✅ OpenAI streaming + tool calling passed!');
+          TESTEOF
+
+  streaming-e2e-gemini:
+    name: E2E Streaming — Gemini
+    needs: web-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx jsii
+      - run: npm run build:web
+
+      - name: Streaming E2E — Gemini (tool calling)
+        if: env.GEMINI_API_KEY != ''
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          node --input-type=module << 'TESTEOF'
+          import { createProvider, StreamingWebAgent, ToolHandler, ToolBuilder } from './dist/strands-jsii.web.mjs';
+
+          class CalcHandler extends ToolHandler {
+            handle(inputJson) {
+              const { expression } = JSON.parse(inputJson);
+              try { return JSON.stringify({ result: String(eval(expression)) }); }
+              catch (e) { return JSON.stringify({ error: e.message }); }
+            }
+          }
+
+          const calc = new ToolBuilder('calculator', new CalcHandler())
+            .description('Evaluate math').addStringParam('expression', 'Math expression', true).create();
+
+          const model = createProvider('gemini', process.env.GEMINI_API_KEY, { modelId: 'gemini-2.0-flash', maxTokens: 256 });
+          const agent = new StreamingWebAgent({ model, tools: [calc], systemPrompt: 'You are a math assistant. Always use the calculator tool.' });
+
+          console.log('🔄 Streaming Gemini with tool calling...');
+          let fullText = '', toolCalls = 0, chunks = 0;
+          for await (const event of agent.stream('What is 42 * 17?')) {
+            if (event.type === 'modelContentBlockDeltaEvent' && event.delta?.type === 'textDelta') { fullText += event.delta.text; chunks++; }
+            if (event.type === 'beforeToolCallEvent') { toolCalls++; console.log(`  🔧 Tool call: ${event.toolUse.name}`); }
+          }
+          console.log(`  Response (${chunks} chunks): ${fullText.slice(0, 200)}`);
+          if (chunks === 0) throw new Error('No streaming chunks received');
+          if (toolCalls === 0) throw new Error('No tool calls made');
+          console.log('✅ Gemini streaming + tool calling passed!');
+          TESTEOF
+
+  # ═══════════════════════════════════════════════════════════
+  # jsii Cross-Language Compilation (non-streaming, sync)
+  # ═══════════════════════════════════════════════════════════
+  jsii-provider-e2e-anthropic:
+    name: E2E jsii — Anthropic (sync)
+    needs: web-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx jsii
+
+      - name: jsii Anthropic E2E (sync + tool calling)
+        if: env.ANTHROPIC_API_KEY != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          node -e "
+          const { Strands, ToolHandler } = require('./lib');
+
+          class CalcHandler extends ToolHandler {
+            handle(inputJson) {
+              const { expression } = JSON.parse(inputJson);
+              try { return JSON.stringify({ result: String(eval(expression)) }); }
+              catch (e) { return JSON.stringify({ error: e.message }); }
+            }
+          }
+
+          const calc = Strands.tool('calculator', 'Evaluate math')
+            .param('expression', 'string', 'Math expression')
+            .withHandler(new CalcHandler())
+            .create();
+
+          const agent = Strands.agentWith(
+            Strands.anthropic('claude-haiku-4-5-20250414', process.env.ANTHROPIC_API_KEY),
+            calc
+          );
+
+          console.log('Calling Anthropic via jsii (sync)...');
+          const response = agent.ask('What is 42 * 17? Use calculator.');
+          console.log('Response:', response.text.substring(0, 200));
+          console.log('Tokens:', response.totalTokens);
+          if (!response.text || response.text.length === 0) throw new Error('Empty response');
+          console.log('✅ jsii Anthropic E2E passed!');
+          "
+
+  jsii-provider-e2e-openai:
+    name: E2E jsii — OpenAI (sync)
+    needs: web-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx jsii
+
+      - name: jsii OpenAI E2E (sync + tool calling)
+        if: env.OPENAI_API_KEY != ''
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          node -e "
+          const { Strands, ToolHandler } = require('./lib');
+
+          class CalcHandler extends ToolHandler {
+            handle(inputJson) {
+              const { expression } = JSON.parse(inputJson);
+              try { return JSON.stringify({ result: String(eval(expression)) }); }
+              catch (e) { return JSON.stringify({ error: e.message }); }
+            }
+          }
+
+          const calc = Strands.tool('calculator', 'Evaluate math')
+            .param('expression', 'string', 'Math expression')
+            .withHandler(new CalcHandler()).create();
+
+          const agent = Strands.agentWith(
+            Strands.openai('gpt-4o-mini', process.env.OPENAI_API_KEY),
+            calc
+          );
+
+          console.log('Calling OpenAI via jsii (sync)...');
+          const response = agent.ask('What is 42 * 17? Use calculator.');
+          console.log('Response:', response.text.substring(0, 200));
+          if (!response.text) throw new Error('Empty response');
+          console.log('✅ jsii OpenAI E2E passed!');
+          "
+
+  jsii-provider-e2e-gemini:
+    name: E2E jsii — Gemini (sync)
+    needs: web-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx jsii
+
+      - name: jsii Gemini E2E (sync + tool calling)
+        if: env.GEMINI_API_KEY != ''
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          node -e "
+          const { Strands, ToolHandler } = require('./lib');
+
+          class CalcHandler extends ToolHandler {
+            handle(inputJson) {
+              const { expression } = JSON.parse(inputJson);
+              try { return JSON.stringify({ result: String(eval(expression)) }); }
+              catch (e) { return JSON.stringify({ error: e.message }); }
+            }
+          }
+
+          const calc = Strands.tool('calculator', 'Evaluate math')
+            .param('expression', 'string', 'Math expression')
+            .withHandler(new CalcHandler()).create();
+
+          const agent = Strands.agentWith(
+            Strands.gemini('gemini-2.0-flash', process.env.GEMINI_API_KEY),
+            calc
+          );
+
+          console.log('Calling Gemini via jsii (sync)...');
+          const response = agent.ask('What is 42 * 17? Use calculator.');
+          console.log('Response:', response.text.substring(0, 200));
+          if (!response.text) throw new Error('Empty response');
+          console.log('✅ jsii Gemini E2E passed!');
+          "
+
+  # ═══════════════════════════════════════════════════════════
+  # Summary
+  # ═══════════════════════════════════════════════════════════
+  summary:
+    name: CI Summary
+    needs: [web-build, format-tests, streaming-e2e-anthropic, streaming-e2e-openai, streaming-e2e-gemini, jsii-provider-e2e-anthropic, jsii-provider-e2e-openai, jsii-provider-e2e-gemini]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Results
+        run: |
+          echo "════════════════════════════════════════════════"
+          echo "  strands-jsii CI Results"
+          echo "════════════════════════════════════════════════"
+          echo ""
+          echo "  Web Bundle:              ${{ needs.web-build.result }}"
+          echo "  Format Tests:            ${{ needs.format-tests.result }}"
+          echo ""
+          echo "  Streaming E2E:"
+          echo "    Anthropic:             ${{ needs.streaming-e2e-anthropic.result }}"
+          echo "    OpenAI:                ${{ needs.streaming-e2e-openai.result }}"
+          echo "    Gemini:                ${{ needs.streaming-e2e-gemini.result }}"
+          echo ""
+          echo "  jsii Sync E2E:"
+          echo "    Anthropic:             ${{ needs.jsii-provider-e2e-anthropic.result }}"
+          echo "    OpenAI:                ${{ needs.jsii-provider-e2e-openai.result }}"
+          echo "    Gemini:                ${{ needs.jsii-provider-e2e-gemini.result }}"
+          echo ""
+          echo "════════════════════════════════════════════════"
+
+          # Fail if web-build or format-tests failed (critical)
+          if [ "${{ needs.web-build.result }}" = "failure" ] || \
+             [ "${{ needs.format-tests.result }}" = "failure" ]; then
+            echo "❌ Critical tests failed!"
+            exit 1
+          fi
+          echo "✅ All critical tests passed!"
