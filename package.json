@@ -56,7 +56,10 @@
       "go": {
         "moduleName": "github.com/cagataycali/strands-jsii/go"
       }
-    }
+    },
+    "excludeTypescript": [
+      "src/web/**"
+    ]
   },
   "bundledDependencies": [
     "@aws-sdk/client-bedrock-runtime"

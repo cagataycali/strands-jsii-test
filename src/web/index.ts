@@ -87,3 +87,9 @@ export { UniversalProvider, createProvider } from './providers/engine';
 export type { ProviderConfig } from './providers/protocol';
 export { BUILDERS, PARSERS } from './providers/definitions';
 export type { BodyBuilder, ResponseParser } from './providers/definitions';
+
+// ══════════════════════════════════════════════════════════
+// SHARED FORMAT DEFINITIONS (usable by both jsii and browser)
+// ══════════════════════════════════════════════════════════
+export { REQUEST_BUILDERS, RESPONSE_PARSERS, SSE_PARSERS, DEFAULTS } from '../providers/formats';
+export type { ProviderRequest, ProviderDefaults, StreamChunk } from '../providers/formats';
