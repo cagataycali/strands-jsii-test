@@ -93,3 +93,18 @@ export type { BodyBuilder, ResponseParser } from './providers/definitions';
 // ══════════════════════════════════════════════════════════
 export { REQUEST_BUILDERS, RESPONSE_PARSERS, SSE_PARSERS, DEFAULTS } from '../providers/formats';
 export type { ProviderRequest, ProviderDefaults, StreamChunk } from '../providers/formats';
+
+// ══════════════════════════════════════════════════════════
+// MULTI-AGENT TOOLS (use_agent, scheduler, pub/sub)
+// ══════════════════════════════════════════════════════════
+export { useAgentTool, schedulerTool, subscribeTopicTool, publishTopicTool, getAllAgentTools } from './tools.agents';
+
+// ══════════════════════════════════════════════════════════
+// SENSORY TOOLS (vision, context, bluetooth)
+// ══════════════════════════════════════════════════════════
+export { captureImageTool, readFileTool, getUserContextTool, setContextTool, enableContextTrackingTool, scanBluetoothTool, getDynamicContext, getAllSensoryTools } from './tools.sensory';
+
+// ══════════════════════════════════════════════════════════
+// SERVICE WORKER / PWA
+// ══════════════════════════════════════════════════════════
+export { generateServiceWorker, registerServiceWorker, generateManifest } from './sw';
