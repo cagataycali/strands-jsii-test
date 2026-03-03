@@ -79,3 +79,11 @@ export { SummarizingConversationManager } from '../conversation/summarizing';
 export { CallbackHandler } from '../hooks/handler';
 export { HookProvider, HookRegistry, BeforeInvocationEvent, AfterInvocationEvent, MessageAddedEvent, ToolStartEvent, ToolEndEvent } from '../hooks/hooks';
 export { Identifier } from '../utils/identifier';
+
+// ══════════════════════════════════════════════════════════
+// UNIVERSAL PROVIDER (define once, run everywhere)
+// ══════════════════════════════════════════════════════════
+export { UniversalProvider, createProvider } from './providers/engine';
+export type { ProviderConfig } from './providers/protocol';
+export { BUILDERS, PARSERS } from './providers/definitions';
+export type { BodyBuilder, ResponseParser } from './providers/definitions';
