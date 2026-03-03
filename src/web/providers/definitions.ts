@@ -181,7 +181,7 @@ export function buildGeminiBody(config: any, messages: any[], systemPrompt?: str
 
   const action = stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
   return {
-    url: config.proxyUrl ?? `https://generativelanguage.googleapis.com/v1beta/models/${config.modelId ?? 'gemini-2.5-flash'}:${action}&key=${config.apiKey}`,
+    url: config.proxyUrl ?? `https://generativelanguage.googleapis.com/v1beta/models/${config.modelId ?? 'gemini-2.5-flash'}:${action}${action.includes('?') ? '&' : '?'}key=${config.apiKey}`,
     headers: { 'content-type': 'application/json' },
     body,
   };
