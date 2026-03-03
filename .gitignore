@@ -6,3 +6,8 @@ dist/
 *.d.ts
 *.js.map
 !jest.config.js
+site/
+.venv/
+test-lib/
+coverage/
+scripts/__pycache__/

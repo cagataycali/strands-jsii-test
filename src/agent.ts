@@ -1,413 +1,349 @@
 /**
- * StrandsAgent - The main agent class for jsii multi-language bindings.
+ * StrandsAgent — the core agent.
  *
- * This implements the core agent loop (model → tool → model → ...) in a
- * jsii-compatible way. The key difference from the TypeScript SDK is that
- * this uses Promise-based APIs instead of async generators.
- *
- * The agent loop:
- * 1. Sends conversation history to the model
- * 2. Model responds with text or tool use requests
- * 3. If tool use: execute tools, add results to history, go to 1
- * 4. If no tool use: return the response
+ * Clean interface. Tools, hooks, conversation management.
+ * The model talks, tools act, the loop continues.
  */
 
-import { ContentBlock } from './content';
-import { AgentMessage } from './message';
-import { ToolDefinition } from './tools';
-import { BedrockModelProvider } from './model';
-import { MessageRole } from './types';
+import { ContentBlock } from './types/content';
+import { AgentMessage } from './types/message';
+import { AgentResponse } from './types/response';
+import { MessageRole } from './types/enums';
+import { ToolDefinition, ContextAwareToolDefinition, ToolContext } from './tools/definition';
+import { ToolRegistry } from './tools/registry';
+import { ToolCaller, DirectToolCallResult, MessageAppender } from './tools/caller';
+import { ModelProvider } from './models/provider';
+import { BedrockModelProvider } from './models/bedrock';
+import { ConversationManager } from './conversation/manager';
+import { NullConversationManager } from './conversation/null';
+import { CallbackHandler } from './hooks/handler';
+import { HookRegistry, BeforeInvocationEvent, AfterInvocationEvent, MessageAddedEvent, ToolStartEvent, ToolEndEvent } from './hooks/hooks';
+import { ErrorClassifier } from './errors/classifier';
 
 /**
- * Configuration for creating a StrandsAgent.
+ * Agent configuration options.
  *
  * @example
  *
- * In Python:
- * config = AgentConfig(
- *     model=BedrockModelProvider(BedrockModelConfig(
- *         model_id="us.anthropic.claude-sonnet-4-20250514-v1:0"
- *     )),
- *     system_prompt="You are a helpful assistant.",
- *     tools=[calculator, web_search]
- * )
- * agent = StrandsAgent(config)
+ * Python:
+ *   agent = Agent(model=Bedrock(), tools=[calculator])
  *
- * In Java:
- * AgentConfig config = new AgentConfig(
- *     new BedrockModelProvider(new BedrockModelConfig()),
- *     "You are a helpful assistant.",
- *     Arrays.asList(calculator, webSearch),
- *     50
- * );
- * StrandsAgent agent = new StrandsAgent(config);
+ * TypeScript:
+ *   const agent = new StrandsAgent({ model: new BedrockModelProvider(), tools: [calc] });
+ *
+ * Java:
+ *   new StrandsAgent(AgentConfig.builder().model(bedrock).tools(tools).build());
+ */
+export interface AgentConfigOptions {
+  /** Model provider. Default: BedrockModelProvider */
+  readonly model?: ModelProvider;
+  /** System prompt. Default: "You are a helpful AI assistant." */
+  readonly systemPrompt?: string;
+  /** Tools available to the agent. */
+  readonly tools?: ToolDefinition[];
+  /** Conversation manager. Default: NullConversationManager */
+  readonly conversationManager?: ConversationManager;
+  /** Callback handler for lifecycle events. */
+  readonly callbackHandler?: CallbackHandler;
+  /** Whether agent.tool.X() records in history. Default: true */
+  readonly recordDirectToolCall?: boolean;
+  /** Maximum agent loop cycles. Default: 50 */
+  readonly maxCycles?: number;
+}
+
+/**
+ * Resolved agent configuration. All fields are guaranteed set.
  */
 export class AgentConfig {
-  /**
-   * The model provider to use for inference.
-   */
-  public readonly model: BedrockModelProvider;
-
-  /**
-   * System prompt to guide model behavior.
-   */
+  public readonly model: ModelProvider;
   public readonly systemPrompt: string;
-
-  /**
-   * Tools available to the agent.
-   */
   public readonly tools: ToolDefinition[];
-
-  /**
-   * Maximum number of agent loop cycles to prevent infinite loops.
-   * @default 50
-   */
+  public readonly conversationManager: ConversationManager;
+  public readonly callbackHandler: CallbackHandler | undefined;
+  public readonly recordDirectToolCall: boolean;
   public readonly maxCycles: number;
 
-  /**
-   * Creates an agent configuration.
-   * @param model The model provider
-   * @param systemPrompt System prompt text
-   * @param tools Array of tool definitions
-   * @param maxCycles Maximum loop cycles
-   */
-  public constructor(
-    model?: BedrockModelProvider,
-    systemPrompt?: string,
-    tools?: ToolDefinition[],
-    maxCycles?: number,
-  ) {
-    this.model = model ?? new BedrockModelProvider();
-    this.systemPrompt = systemPrompt ?? 'You are a helpful AI assistant.';
-    this.tools = tools ?? [];
-    this.maxCycles = maxCycles ?? 50;
+  public constructor(options?: AgentConfigOptions) {
+    this.model = options?.model ?? new BedrockModelProvider();
+    this.systemPrompt = options?.systemPrompt ?? 'You are a helpful AI assistant.';
+    this.tools = options?.tools ?? [];
+    this.conversationManager = options?.conversationManager ?? new NullConversationManager();
+    this.callbackHandler = options?.callbackHandler;
+    this.recordDirectToolCall = options?.recordDirectToolCall ?? true;
+    this.maxCycles = options?.maxCycles ?? 50;
   }
 }
 
 /**
- * Response from an agent invocation.
- *
- * Contains the final message, stop reason, conversation history,
- * and token usage statistics.
+ * Internal message appender that bridges ToolCaller to agent's message history.
  */
-export class AgentResponse {
-  /**
-   * The final assistant message.
-   */
-  public readonly message: AgentMessage;
-
-  /**
-   * Why the model stopped generating.
-   */
-  public readonly stopReason: string;
-
-  /**
-   * The full conversation history after this invocation.
-   */
-  public readonly messages: AgentMessage[];
-
-  /**
-   * Total input tokens used across all model calls.
-   */
-  public readonly inputTokens: number;
-
-  /**
-   * Total output tokens used across all model calls.
-   */
-  public readonly outputTokens: number;
-
-  /**
-   * Creates an agent response.
-   * @param message The final assistant message
-   * @param stopReason Why the model stopped
-   * @param messages Full conversation history
-   * @param inputTokens Total input tokens
-   * @param outputTokens Total output tokens
-   */
-  public constructor(
-    message: AgentMessage,
-    stopReason: string,
-    messages: AgentMessage[],
-    inputTokens: number,
-    outputTokens: number,
-  ) {
-    this.message = message;
-    this.stopReason = stopReason;
-    this.messages = messages;
-    this.inputTokens = inputTokens;
-    this.outputTokens = outputTokens;
+class AgentMessageAppender extends MessageAppender {
+  private readonly _agent: StrandsAgent;
+  public constructor(agent: StrandsAgent) {
+    super();
+    this._agent = agent;
   }
-
-  /**
-   * Get the text content of the response.
-   */
-  public get text(): string {
-    return this.message.fullText;
+  public appendMessages(messagesJson: string): void {
+    this._agent.appendRawMessages(messagesJson);
   }
 }
 
 /**
- * The main Strands Agent class.
- *
- * Orchestrates the interaction between a model and tools.
- * Implements the agent loop: model → tool → model → ... until completion.
- *
- * This is the primary entry point for using Strands Agents from any language.
+ * The Strands Agent.
  *
  * @example
  *
- * In Python:
- * from strands_agents_jsii import StrandsAgent, AgentConfig, BedrockModelProvider, BedrockModelConfig
+ * Python:
+ *   agent = Agent(model=Bedrock(), tools=[calculator])
+ *   agent.tool.calculator(expression="6 * 7")
+ *   response = agent("What was the result?")
  *
- * agent = StrandsAgent(AgentConfig(
- *     model=BedrockModelProvider(BedrockModelConfig(
- *         model_id="us.anthropic.claude-sonnet-4-20250514-v1:0"
- *     )),
- *     system_prompt="You are a helpful assistant."
- * ))
- *
- * response = agent.invoke("What is the capital of France?")
- * print(response.text)
- *
- * In Java:
- * StrandsAgent agent = new StrandsAgent(new AgentConfig(
- *     new BedrockModelProvider(new BedrockModelConfig()),
- *     "You are a helpful assistant.",
- *     Collections.emptyList(),
- *     50
- * ));
- *
- * AgentResponse response = agent.invoke("What is the capital of France?");
- * System.out.println(response.getText());
- *
- * In C#:
- * var agent = new StrandsAgent(new AgentConfig(
- *     new BedrockModelProvider(new BedrockModelConfig()),
- *     "You are a helpful assistant."
- * ));
- *
- * var response = await agent.Invoke("What is the capital of France?");
- * Console.WriteLine(response.Text);
- *
- * In Go:
- * agent := strandsagents.NewStrandsAgent(strandsagents.NewAgentConfig(
- *     strandsagents.NewBedrockModelProvider(strandsagents.NewBedrockModelConfig(nil, nil, nil, nil, nil)),
- *     jsii.String("You are a helpful assistant."),
- *     nil,
- *     nil,
- * ))
- *
- * response, _ := agent.Invoke(jsii.String("What is the capital of France?"))
- * fmt.Println(*response.Text())
+ * Java:
+ *   StrandsAgent agent = new StrandsAgent(new AgentConfig(opts));
+ *   agent.callTool("calculator", "{\"expression\": \"6 * 7\"}");
+ *   AgentResponse r = agent.invoke("What was the result?");
  */
 export class StrandsAgent {
-  /**
-   * The agent configuration.
-   */
   public readonly agentConfig: AgentConfig;
+  public readonly toolRegistry: ToolRegistry;
+  public readonly hookRegistry: HookRegistry;
 
-  /**
-   * The conversation history.
-   */
   private _messages: AgentMessage[];
+  private readonly _toolCaller: ToolCaller;
 
-  /**
-   * Tool registry mapping name -> tool.
-   */
-  private readonly _toolMap: Map<string, ToolDefinition>;
-
-  /**
-   * Creates a new StrandsAgent.
-   * @param config Agent configuration
-   */
   public constructor(config?: AgentConfig) {
     this.agentConfig = config ?? new AgentConfig();
     this._messages = [];
-    this._toolMap = new Map();
+    this.toolRegistry = ToolRegistry.fromTools(this.agentConfig.tools);
+    this.hookRegistry = new HookRegistry();
+    this._toolCaller = new ToolCaller(this.toolRegistry, new AgentMessageAppender(this));
+  }
 
-    // Register tools
-    for (const tool of this.agentConfig.tools) {
-      this._toolMap.set(tool.spec.name, tool);
-    }
+  // ─── Public API ───────────────────────────────────────────
+
+  /** Invoke the agent with a text prompt. */
+  public invoke(prompt: string): AgentResponse {
+    return this._runLoop(prompt);
   }
 
   /**
-   * Invoke the agent with a text prompt.
+   * Ask the agent a question. Alias for invoke().
    *
-   * Runs the full agent loop: sends the prompt to the model, executes any
-   * requested tools, and continues until the model completes without requesting tools.
-   *
-   * @param prompt The user's text input
-   * @returns The agent's response
+   * Universal shorthand that works identically across all languages:
+   *   Python:     agent.ask("Hello!")
+   *   TypeScript: agent.ask("Hello!")
+   *   Java:       agent.ask("Hello!");
+   *   C#:         agent.Ask("Hello!");
+   *   Go:         agent.Ask("Hello!")
    */
-  public async invoke(prompt: string): Promise<AgentResponse> {
-    // Add user message
-    const userMessage = AgentMessage.userMessage(prompt);
-    this._messages.push(userMessage);
+  public ask(prompt: string): AgentResponse {
+    return this.invoke(prompt);
+  }
 
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
+  /** Call a tool directly and inject the 4-message context into history. */
+  public callTool(toolName: string, inputJson: string): DirectToolCallResult {
+    return this._toolCaller.callTool(toolName, inputJson, this.agentConfig.recordDirectToolCall);
+  }
 
-    // Agent loop
-    for (let cycle = 0; cycle < this.agentConfig.maxCycles; cycle++) {
-      // Format messages for Bedrock
-      const bedrockMessages = this._formatMessagesForBedrock();
+  /**
+   * Get a tool proxy for fluent tool invocation.
+   *
+   * Universal shorthand that works identically across all languages:
+   *   Python:     agent.tool_call("calculator", '{"expression":"6*7"}')
+   *   TypeScript: agent.toolCall("calculator", '{"expression":"6*7"}')
+   *   Java:       agent.toolCall("calculator", "{\"expression\":\"6*7\"}");
+   *   C#:         agent.ToolCall("calculator", "{\"expression\":\"6*7\"}");
+   *   Go:         agent.ToolCall("calculator", `{"expression":"6*7"}`)
+   *
+   * Returns the result JSON string directly — simpler than callTool().
+   */
+  public toolCall(toolName: string, inputJson: string): string {
+    const result = this._toolCaller.callTool(toolName, inputJson, this.agentConfig.recordDirectToolCall);
+    return result.resultJson;
+  }
 
-      // Format tool specs
-      let toolSpecsJson: string | undefined;
-      if (this.agentConfig.tools.length > 0) {
-        const toolSpecs = this.agentConfig.tools.map(t => ({
-          name: t.spec.name,
-          description: t.spec.description,
-          inputSchema: JSON.parse(t.spec.inputSchemaJson),
-        }));
-        toolSpecsJson = JSON.stringify(toolSpecs);
-      }
+  /** Reset conversation history. */
+  public resetConversation(): void { this._messages = []; }
 
-      // Call model
-      const responseJson = await this.agentConfig.model.converse(
-        JSON.stringify(bedrockMessages),
-        this.agentConfig.systemPrompt,
-        toolSpecsJson,
-      );
+  /** Current conversation history. */
+  public get messages(): AgentMessage[] { return [...this._messages]; }
 
-      const response = JSON.parse(responseJson);
+  /** System prompt. */
+  public get systemPrompt(): string { return this.agentConfig.systemPrompt; }
 
-      // Track usage
-      if (response.usage) {
-        totalInputTokens += response.usage.inputTokens ?? 0;
-        totalOutputTokens += response.usage.outputTokens ?? 0;
-      }
+  /** Model provider. */
+  public get model(): ModelProvider { return this.agentConfig.model; }
 
-      // Parse assistant message
-      const assistantContent = response.output?.message?.content ?? [];
-      const contentBlocks: ContentBlock[] = [];
-      const toolUseBlocks: Array<{ name: string; toolUseId: string; input: unknown }> = [];
+  /** Registered tool count. */
+  public get toolCount(): number { return this.toolRegistry.size; }
 
-      for (const block of assistantContent) {
+  /** Registered tool names as JSON array string. */
+  public get toolNames(): string { return this.toolRegistry.listNames(); }
+
+  /** Max cycles for the agent loop. */
+  public get maxCycles(): number { return this.agentConfig.maxCycles; }
+
+  /** Append raw Bedrock Converse-format messages to history. */
+  public appendRawMessages(messagesJson: string): void {
+    const rawMessages = JSON.parse(messagesJson);
+    for (const raw of rawMessages) {
+      const blocks: ContentBlock[] = [];
+      for (const block of (raw.content ?? [])) {
         if (block.text) {
-          contentBlocks.push(ContentBlock.fromText(block.text));
+          blocks.push(ContentBlock.fromText(block.text));
         } else if (block.toolUse) {
-          const tu = block.toolUse;
-          contentBlocks.push(ContentBlock.fromToolUse(
-            tu.name,
-            tu.toolUseId,
-            JSON.stringify(tu.input ?? {}),
-          ));
-          toolUseBlocks.push({
-            name: tu.name,
-            toolUseId: tu.toolUseId,
-            input: tu.input,
-          });
+          blocks.push(ContentBlock.fromToolUse(block.toolUse.name, block.toolUse.toolUseId, JSON.stringify(block.toolUse.input ?? {})));
+        } else if (block.toolResult) {
+          const tr = block.toolResult;
+          const content = tr.content?.[0]?.json ?? tr.content?.[0]?.text ?? {};
+          blocks.push(ContentBlock.fromToolResult(tr.toolUseId, tr.status ?? 'success', JSON.stringify(content)));
         }
       }
+      const role = raw.role === 'assistant' ? MessageRole.ASSISTANT : MessageRole.USER;
+      this._messages.push(new AgentMessage(role, blocks));
+    }
+  }
 
-      const assistantMessage = new AgentMessage(MessageRole.ASSISTANT, contentBlocks);
-      this._messages.push(assistantMessage);
+  // ─── Agent Loop ───────────────────────────────────────────
 
-      // Check stop reason
-      const stopReason = response.stopReason ?? 'end_turn';
+  private _runLoop(prompt: string): AgentResponse {
+    const handler = this.agentConfig.callbackHandler;
 
-      if (stopReason !== 'tool_use' || toolUseBlocks.length === 0) {
-        // Done - return response
-        return new AgentResponse(
-          assistantMessage,
-          stopReason,
-          [...this._messages],
-          totalInputTokens,
-          totalOutputTokens,
-        );
-      }
-
-      // Execute tools
-      const toolResults: ContentBlock[] = [];
-      for (const toolUse of toolUseBlocks) {
-        const tool = this._toolMap.get(toolUse.name);
-        let resultJson: string;
-
-        if (tool) {
-          try {
-            resultJson = tool.execute(JSON.stringify(toolUse.input ?? {}));
-          } catch (e: unknown) {
-            const error = e instanceof Error ? e : new Error(String(e));
-            resultJson = JSON.stringify({ error: error.message });
-          }
-        } else {
-          resultJson = JSON.stringify({ error: `Tool '${toolUse.name}' not found` });
-        }
-
-        toolResults.push(ContentBlock.fromToolResult(
-          toolUse.toolUseId,
-          tool ? 'success' : 'error',
-          resultJson,
-        ));
-      }
-
-      // Add tool result message
-      const toolResultMessage = new AgentMessage(MessageRole.USER, toolResults);
-      this._messages.push(toolResultMessage);
+    const beforeEvent = new BeforeInvocationEvent(prompt, JSON.stringify(this._messages.map(m => ({ role: m.role }))));
+    this.hookRegistry.emitBeforeInvocation(beforeEvent);
+    if (beforeEvent.cancelled) {
+      const cancelMsg = AgentMessage.assistantMessage('Invocation cancelled by hook.');
+      return new AgentResponse(cancelMsg, 'cancelled', [...this._messages, cancelMsg], 0, 0);
     }
 
-    // Max cycles reached
-    const lastMessage = this._messages[this._messages.length - 1];
-    return new AgentResponse(
-      lastMessage,
-      'maxCycles',
-      [...this._messages],
-      totalInputTokens,
-      totalOutputTokens,
-    );
+    if (handler) handler.onAgentStart(prompt);
+    this._messages.push(AgentMessage.userMessage(prompt));
+    this.hookRegistry.emitMessageAdded(new MessageAddedEvent('user', JSON.stringify([{ text: prompt }])));
+
+    let inTokens = 0;
+    let outTokens = 0;
+
+    try {
+      for (let cycle = 0; cycle < this.agentConfig.maxCycles; cycle++) {
+        const managedJson = this.agentConfig.conversationManager.apply(JSON.stringify(this._formatMessagesForModel()));
+
+        let toolSpecsJson: string | undefined;
+        const tools = this.toolRegistry.allTools();
+        if (tools.length > 0) {
+          toolSpecsJson = JSON.stringify(tools.map(t => ({
+            name: t.spec.name, description: t.spec.description, inputSchema: JSON.parse(t.spec.inputSchemaJson),
+          })));
+        }
+
+        if (handler) handler.onModelStart(managedJson);
+        const responseJson = this.agentConfig.model.converse(managedJson, this.agentConfig.systemPrompt, toolSpecsJson);
+        if (handler) handler.onModelEnd(responseJson);
+
+        const response = JSON.parse(responseJson);
+
+        if (response.error) {
+          const classified = ErrorClassifier.classify(responseJson);
+          const msg = classified ? classified.message : response.error;
+          if (handler) handler.onError(msg, classified?.phase ?? 'model');
+          const errMsg = new AgentMessage(MessageRole.ASSISTANT, [ContentBlock.fromText('Error: ' + msg)]);
+          this._messages.push(errMsg);
+          return new AgentResponse(errMsg, 'error', [...this._messages], inTokens, outTokens);
+        }
+
+        inTokens += response.usage?.inputTokens ?? 0;
+        outTokens += response.usage?.outputTokens ?? 0;
+
+        const blocks: ContentBlock[] = [];
+        const toolUses: Array<{ name: string; toolUseId: string; input: unknown }> = [];
+
+        for (const block of (response.output?.message?.content ?? [])) {
+          if (block.text) {
+            blocks.push(ContentBlock.fromText(block.text));
+            if (handler) handler.onTextChunk(block.text);
+          } else if (block.toolUse) {
+            blocks.push(ContentBlock.fromToolUse(block.toolUse.name, block.toolUse.toolUseId, JSON.stringify(block.toolUse.input ?? {})));
+            toolUses.push({ name: block.toolUse.name, toolUseId: block.toolUse.toolUseId, input: block.toolUse.input });
+          } else if (block.reasoningContent) {
+            const rc = block.reasoningContent;
+            blocks.push(ContentBlock.fromReasoning(rc.reasoningText?.text ?? rc.text ?? '', rc.reasoningText?.signature ?? ''));
+          }
+        }
+
+        const assistantMsg = new AgentMessage(MessageRole.ASSISTANT, blocks);
+        this._messages.push(assistantMsg);
+        this.hookRegistry.emitMessageAdded(new MessageAddedEvent('assistant', JSON.stringify(response.output?.message?.content ?? [])));
+
+        const stopReason = response.stopReason ?? 'end_turn';
+
+        if (stopReason !== 'tool_use' || toolUses.length === 0) {
+          if (handler) handler.onAgentEnd(assistantMsg.fullText, inTokens, outTokens);
+          this.hookRegistry.emitAfterInvocation(new AfterInvocationEvent(assistantMsg.fullText, stopReason, inTokens, outTokens));
+          return new AgentResponse(assistantMsg, stopReason, [...this._messages], inTokens, outTokens);
+        }
+
+        const results: ContentBlock[] = [];
+        for (const tu of toolUses) {
+          const tool = this.toolRegistry.get(tu.name);
+          const inp = JSON.stringify(tu.input ?? {});
+
+          if (handler) handler.onToolStart(tu.name, inp);
+          this.hookRegistry.emitToolStart(new ToolStartEvent(tu.name, inp));
+
+          const t0 = Date.now();
+          let res: string;
+          if (tool) {
+            try {
+              res = (tool instanceof ContextAwareToolDefinition)
+                ? tool.executeWithContext(inp, new ToolContext(this, tu.toolUseId, tu.name, '[]', this.agentConfig.systemPrompt))
+                : tool.execute(inp);
+            } catch (e: unknown) {
+              const err = e instanceof Error ? e : new Error(String(e));
+              res = JSON.stringify({ error: err.message });
+              if (handler) handler.onError(err.message, 'tool');
+            }
+          } else {
+            res = JSON.stringify({ error: 'Tool not found: ' + tu.name });
+          }
+
+          const ms = Date.now() - t0;
+          if (handler) handler.onToolEnd(tu.name, res, ms);
+          this.hookRegistry.emitToolEnd(new ToolEndEvent(tu.name, res, ms));
+          results.push(ContentBlock.fromToolResult(tu.toolUseId, tool ? 'success' : 'error', res));
+        }
+
+        this._messages.push(new AgentMessage(MessageRole.USER, results));
+      }
+
+      const last = this._messages[this._messages.length - 1];
+      if (handler) handler.onAgentEnd('Max cycles reached', inTokens, outTokens);
+      return new AgentResponse(last, 'maxCycles', [...this._messages], inTokens, outTokens);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      if (handler) handler.onError(err.message, 'agent');
+      throw err;
+    }
   }
 
-  /**
-   * Reset the conversation history.
-   */
-  public resetConversation(): void {
-    this._messages = [];
-  }
-
-  /**
-   * Get the current conversation history.
-   */
-  public get messages(): AgentMessage[] {
-    return [...this._messages];
-  }
-
-  /**
-   * Format messages for the Bedrock Converse API.
-   */
-  private _formatMessagesForBedrock(): object[] {
+  private _formatMessagesForModel(): object[] {
     return this._messages.map(msg => {
       const content: object[] = [];
-
       for (const block of msg.content) {
         if (block.isText && block.asText) {
           content.push({ text: block.asText.text });
         } else if (block.isToolUse && block.asToolUse) {
           const tu = block.asToolUse;
-          content.push({
-            toolUse: {
-              toolUseId: tu.toolUseId,
-              name: tu.name,
-              input: JSON.parse(tu.inputJson),
-            },
-          });
+          content.push({ toolUse: { toolUseId: tu.toolUseId, name: tu.name, input: JSON.parse(tu.inputJson) } });
         } else if (block.isToolResult && block.asToolResult) {
           const tr = block.asToolResult;
-          content.push({
-            toolResult: {
-              toolUseId: tr.toolUseId,
-              content: [{ json: JSON.parse(tr.contentJson) }],
-              status: tr.status,
-            },
-          });
+          content.push({ toolResult: { toolUseId: tr.toolUseId, content: [{ json: JSON.parse(tr.contentJson) }], status: tr.status } });
+        } else if (block.isReasoning && block.asReasoning) {
+          const rc = block.asReasoning;
+          const rt: Record<string, string> = { text: rc.text };
+          if (rc.signature) rt.signature = rc.signature;
+          content.push({ reasoningContent: { reasoningText: rt } });
         }
       }
-
-      return {
-        role: msg.role,
-        content,
-      };
+      return { role: msg.role, content };
     });
   }
 }

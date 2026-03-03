@@ -1,5 +1,5 @@
 {
-  "name": "@strands-agents/jsii",
+  "name": "strands-jsii",
   "version": "0.1.0",
   "description": "Strands Agents SDK - Multi-language bindings via jsii (Python, Java, C#, Go)",
   "main": "lib/index.js",
@@ -13,18 +13,19 @@
     "package:dotnet": "jsii-pacmak --targets dotnet",
     "package:go": "jsii-pacmak --targets go",
     "package:all": "jsii-pacmak",
-    "test": "jest",
+    "test": "jest --no-coverage",
     "clean": "rm -rf lib dist .jsii tsconfig.json node_modules"
   },
   "stability": "experimental",
   "author": {
-    "name": "Strands Agents",
-    "url": "https://github.com/strands-agents"
+    "name": "Cagatay Cali",
+    "email": "cagataycali@icloud.com",
+    "url": "https://github.com/cagataycali"
   },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cagataycali/strands-jsii-test.git"
+    "url": "https://github.com/cagataycali/strands-jsii.git"
   },
   "jsii": {
     "outdir": "dist",
@@ -35,22 +36,22 @@
     },
     "targets": {
       "python": {
-        "distName": "strands-agents-jsii",
-        "module": "strands_agents_jsii"
+        "distName": "strands-jsii",
+        "module": "strands_jsii"
       },
       "java": {
-        "package": "io.github.strands.agents.jsii",
+        "package": "io.github.cagataycali.strands.jsii",
         "maven": {
-          "groupId": "io.github.strands-agents",
-          "artifactId": "strands-agents-jsii"
+          "groupId": "io.github.cagataycali",
+          "artifactId": "strands-jsii"
         }
       },
       "dotnet": {
-        "namespace": "Strands.Agents.Jsii",
-        "packageId": "Strands.Agents.Jsii"
+        "namespace": "StrandsAgents.Jsii",
+        "packageId": "StrandsAgents.Jsii"
       },
       "go": {
-        "moduleName": "github.com/strands-agents/strands-agents-go"
+        "moduleName": "github.com/cagataycali/strands-jsii/go"
       }
     }
   },
@@ -80,5 +81,12 @@
     "java",
     "dotnet",
     "go"
-  ]
+  ],
+  "exports": {
+    ".": {
+      "require": "./lib/index.js",
+      "import": "./lib/index.js",
+      "types": "./lib/index.d.ts"
+    }
+  }
 }
