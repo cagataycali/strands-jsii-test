@@ -9,7 +9,7 @@
  */
 
 import { existsSync, readdirSync, statSync, writeFileSync, unlinkSync } from 'fs';
-import { join, basename } from 'path';
+import { join } from 'path';
 import { tmpdir } from 'os';
 import { execSync } from 'child_process';
 import { ToolRegistry } from './registry';
@@ -153,6 +153,7 @@ export class ToolWatcher {
   private readonly _pollIntervalMs: number;
   private _timer: ReturnType<typeof setInterval> | undefined;
   private _fileStamps: Map<string, number>;
+  private _fileToolNames: Map<string, string[]>;
   private _running: boolean;
 
   public constructor(registry: ToolRegistry, options?: ToolWatcherOptions) {
@@ -160,6 +161,7 @@ export class ToolWatcher {
     this._directory = options?.directory ?? './tools';
     this._pollIntervalMs = options?.pollIntervalMs ?? 2000;
     this._fileStamps = new Map();
+    this._fileToolNames = new Map();
     this._running = false;
   }
 
@@ -215,22 +217,31 @@ export class ToolWatcher {
     // Check for deleted files
     for (const [file] of this._fileStamps) {
       if (!currentFiles.has(file)) {
-        // File was deleted — remove tool
-        const toolName = basename(file, '.py');
-        if (this._registry.has(toolName)) {
+        // File was deleted — remove all tools that came from it
+        const toolNames = this._fileToolNames.get(file) ?? [];
+        for (const toolName of toolNames) {
           this._registry.remove(toolName);
         }
+        this._fileToolNames.delete(file);
         this._fileStamps.delete(file);
       }
     }
   }
 
   private _loadToolFile(filePath: string): void {
+    const fileName = filePath.split('/').pop() ?? filePath;
+    // Remove old tools from this file before reloading
+    const oldNames = this._fileToolNames.get(fileName) ?? [];
+    for (const name of oldNames) this._registry.remove(name);
+
     const metas = extractToolMeta(filePath);
+    const newNames: string[] = [];
     for (const meta of metas) {
       const handler = new PythonFileToolHandler(filePath, meta.funcName);
       const tool = new FunctionTool(meta.name, meta.description, JSON.stringify(meta.schema), handler);
       this._registry.add(tool);
+      newNames.push(meta.name);
     }
+    this._fileToolNames.set(fileName, newNames);
   }
 }

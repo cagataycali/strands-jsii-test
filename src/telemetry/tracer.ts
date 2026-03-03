@@ -279,7 +279,7 @@ export class TracingCallbackHandler extends CallbackHandler {
     const span = this._toolSpans.get(toolName);
     if (!span) return;
 
-    span.setAttribute('gen_ai.tool.duration_ms', durationMs);
+    span.setAttribute('gen_ai.tool.duration_ms', Math.round(durationMs));
     
     // Check for errors in result
     try {
