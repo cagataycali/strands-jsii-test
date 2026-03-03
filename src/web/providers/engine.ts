@@ -1,9 +1,8 @@
 /**
  * UniversalProvider — Browser streaming engine using shared format definitions.
- * Imports from src/providers/formats.ts (the SINGLE SOURCE OF TRUTH).
  */
 import { StreamingModelProvider, StreamEvent } from '../streaming';
-import { REQUEST_BUILDERS, RESPONSE_PARSERS, SSE_PARSERS, type ProviderRequest, type StreamChunk } from '../../providers/formats';
+import { REQUEST_BUILDERS, SSE_PARSERS, type StreamChunk } from '../../providers/formats';
 
 export interface ProviderConfig {
   provider: string;
@@ -43,46 +42,82 @@ export class UniversalProvider extends StreamingModelProvider {
       body: JSON.stringify(req.body),
     });
 
-    if (!response.ok) throw new Error(`${this.config.provider} ${response.status}: ${await response.text()}`);
+    // Handle non-200 responses BEFORE trying to stream
+    if (!response.ok) {
+      let errorText = '';
+      try { errorText = await response.text(); } catch {}
+      throw new Error(`${this.config.provider} ${response.status}: ${errorText}`);
+    }
+
+    // Handle missing body (shouldn't happen with 200, but be safe)
+    if (!response.body) {
+      throw new Error(`${this.config.provider}: No response body (status ${response.status})`);
+    }
 
     if (this.config.provider === 'gemini') yield { type: 'modelMessageStartEvent', role: 'assistant' };
 
-    const reader = response.body!.getReader();
+    const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '', hasTextBlock = false;
+    let buffer = '';
+    let hasTextBlock = false;
+    let hasToolUse = false;
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
+        
+        // Split on newlines — handle both \n and \r\n
+        const lines = buffer.split(/\r?\n/);
         buffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6).trim();
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          // Handle "data: {json}" and "data:{json}" (some providers don't include space)
+          const data = trimmed.startsWith('data: ') ? trimmed.slice(6) : trimmed.slice(5);
           if (!data || data === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(data);
-            const chunks: StreamChunk[] = sseParser ? sseParser(parsed) : [];
-            for (const chunk of chunks) {
-              const event = this.chunkToEvent(chunk);
-              if (event) {
-                if (event.type === 'modelContentBlockDeltaEvent' && event.delta.type === 'textDelta' && !hasTextBlock && this.config.provider === 'openai') {
-                  yield { type: 'modelContentBlockStartEvent' };
-                  hasTextBlock = true;
-                }
-                yield event;
-              }
+
+          let parsed: any;
+          try { parsed = JSON.parse(data); } catch { continue; } // Skip non-JSON lines
+
+          // Check for inline error responses in SSE stream
+          if (parsed.error) {
+            const errMsg = parsed.error.message ?? JSON.stringify(parsed.error);
+            throw new Error(`${this.config.provider} stream error: ${errMsg}`);
+          }
+
+          const chunks: StreamChunk[] = sseParser ? sseParser(parsed) : [];
+          for (const chunk of chunks) {
+            const event = this.chunkToEvent(chunk);
+            if (!event) continue;
+
+            // Track state
+            if (event.type === 'modelContentBlockStartEvent') {
+              if ((event as any).start?.type === 'toolUseStart') hasToolUse = true;
             }
-          } catch {}
+
+            // OpenAI doesn't emit explicit blockStart for text — inject one
+            if (event.type === 'modelContentBlockDeltaEvent' && 
+                (event as any).delta?.type === 'textDelta' && 
+                !hasTextBlock) {
+              yield { type: 'modelContentBlockStartEvent' };
+              hasTextBlock = true;
+            }
+
+            yield event;
+          }
         }
       }
     } finally { reader.releaseLock(); }
 
-    if (hasTextBlock && this.config.provider === 'openai') yield { type: 'modelContentBlockStopEvent' };
-    if (this.config.provider === 'gemini') yield { type: 'modelMessageStopEvent', stopReason: 'endTurn' };
+    // Close any open blocks
+    if (hasTextBlock) yield { type: 'modelContentBlockStopEvent' };
+    // Gemini needs explicit message stop
+    if (this.config.provider === 'gemini') {
+      yield { type: 'modelMessageStopEvent', stopReason: hasToolUse ? 'toolUse' : 'endTurn' };
+    }
   }
 
   private chunkToEvent(chunk: StreamChunk): StreamEvent | null {
