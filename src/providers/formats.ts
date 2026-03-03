@@ -78,6 +78,20 @@ export function formatAnthropicContent(blocks: any[]): any[] {
         const b64 = typeof bytes === 'string' ? bytes : (typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('base64') : btoa(String.fromCharCode(...new Uint8Array(bytes))));
         parts.push({ type: 'image', source: { type: 'base64', media_type: mime[fmt] ?? 'image/png', data: b64 } });
       }
+    } else if (block.document) {
+      const doc = block.document;
+      const bytes = doc.source?.bytes;
+      const format = doc.format ?? 'txt';
+      const name = doc.name ?? 'document';
+      const docMimeMap: Record<string, string> = { pdf: 'application/pdf', txt: 'text/plain', md: 'text/plain', csv: 'text/csv', html: 'text/html', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
+      const mimeType = docMimeMap[format] ?? 'application/octet-stream';
+      if (bytes) {
+        const isText = mimeType === 'text/plain';
+        const data = isText
+          ? (typeof bytes === 'string' ? bytes : (typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('utf-8') : ''))
+          : (typeof bytes === 'string' ? bytes : (typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('base64') : ''));
+        parts.push({ type: 'document', source: { type: isText ? 'text' : 'base64', media_type: mimeType, data }, title: name });
+      }
     } else if (block.cachePoint !== undefined) {
       if (parts.length > 0) parts[parts.length - 1].cache_control = { type: 'ephemeral' };
     }
@@ -200,6 +214,17 @@ export function formatOpenAIMessages(messages: any[], systemPrompt?: string): an
           const b64 = typeof bytes === 'string' ? bytes : (typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('base64') : '');
           regular.push({ type: 'image_url', image_url: { detail: 'auto', url: `data:${mime[fmt] ?? 'image/png'};base64,${b64}` } });
         }
+      } else if (block.document) {
+        const doc = block.document;
+        const bytes = doc.source?.bytes;
+        const format = doc.format ?? 'txt';
+        const name = doc.name ?? 'document';
+        const docMimeMap: Record<string, string> = { pdf: 'application/pdf', txt: 'text/plain', md: 'text/plain', csv: 'text/csv', html: 'text/html' };
+        const mimeType = docMimeMap[format] ?? 'application/octet-stream';
+        if (bytes) {
+          const b64 = typeof bytes === 'string' ? bytes : (typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('base64') : '');
+          regular.push({ type: 'file', file: { file_data: `data:${mimeType};base64,${b64}`, filename: name } });
+        }
       }
     }
     if (msg.role === 'assistant') {
@@ -255,6 +280,12 @@ export function parseOpenAIResponse(data: any): string {
     const code = data.error.code ?? '';
     if (code === 'context_length_exceeded') return JSON.stringify({ error: `Context overflow: ${msg}` });
     if (code === 'rate_limit_exceeded' || msg.toLowerCase().includes('rate limit')) return JSON.stringify({ error: `Throttled: ${msg}` });
+    // Check alternative context overflow messages
+    const overflowPatterns = ['input is too long', 'input length and `max_tokens` exceed', 'too many total text bytes'];
+    const lowerMsg = msg.toLowerCase();
+    for (const pattern of overflowPatterns) {
+      if (lowerMsg.includes(pattern.toLowerCase())) return JSON.stringify({ error: `Context overflow: ${msg}` });
+    }
     return JSON.stringify({ error: msg });
   }
   const choice = data.choices?.[0];
@@ -329,6 +360,16 @@ export function formatGeminiMessages(messages: any[], toolUseIdToName: Record<st
           const b64 = typeof bytes === 'string' ? bytes : (typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('base64') : '');
           parts.push({ inlineData: { mimeType: mime[fmt] ?? 'image/png', data: b64 } });
         }
+      } else if (block.document) {
+        const doc = block.document;
+        const bytes = doc.source?.bytes;
+        const format = doc.format ?? 'txt';
+        const docMimeMap: Record<string, string> = { pdf: 'application/pdf', txt: 'text/plain', md: 'text/plain', csv: 'text/csv', html: 'text/html' };
+        const mimeType = docMimeMap[format] ?? 'application/octet-stream';
+        if (bytes) {
+          const b64 = typeof bytes === 'string' ? bytes : (typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('base64') : '');
+          parts.push({ inlineData: { mimeType, data: b64 } });
+        }
       }
     }
     if (parts.length > 0) contents.push({ role, parts });
@@ -373,6 +414,7 @@ export function parseGeminiResponse(data: any): string {
     const msg = data.error.message ?? JSON.stringify(data.error);
     const status = data.error.status ?? '';
     if (status === 'RESOURCE_EXHAUSTED' || status === 'UNAVAILABLE') return JSON.stringify({ error: `Throttled: ${msg}` });
+    if (status === 'INVALID_ARGUMENT' && msg.includes('exceeds the maximum number of tokens')) return JSON.stringify({ error: `Context overflow: ${msg}` });
     return JSON.stringify({ error: msg });
   }
   const candidate = data.candidates?.[0];
@@ -394,7 +436,7 @@ export function parseGeminiResponse(data: any): string {
       content.push({ text: part.text });
     }
   }
-  const sr = hasToolUse ? 'tool_use' : candidate.finishReason === 'MAX_TOKENS' ? 'max_tokens' : candidate.finishReason === 'SAFETY' ? 'content_filtered' : 'end_turn';
+  const sr = hasToolUse ? 'tool_use' : candidate.finishReason === 'MAX_TOKENS' ? 'max_tokens' : candidate.finishReason === 'SAFETY' ? 'content_filtered' : candidate.finishReason === 'RECITATION' ? 'content_filtered' : 'end_turn';
   return JSON.stringify({ output: { message: { role: 'assistant', content } }, stopReason: sr, usage: { inputTokens: data.usageMetadata?.promptTokenCount ?? 0, outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0, totalTokens: data.usageMetadata?.totalTokenCount ?? 0 } });
 }
 
@@ -446,6 +488,17 @@ export function formatOllamaMessages(messages: any[], systemPrompt?: string): an
         if (bytes) {
           const b64 = typeof bytes === 'string' ? bytes : (typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('base64') : '');
           formatted.push({ role: msg.role, images: [b64] });
+        }
+      } else if (block.document) {
+        const doc = block.document;
+        const bytes = doc.source?.bytes;
+        const format = doc.format ?? 'txt';
+        const name = doc.name ?? 'document';
+        if (bytes && (format === 'txt' || format === 'md')) {
+          const text = typeof bytes === 'string' ? bytes : (typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('utf-8') : '');
+          formatted.push({ role: msg.role, content: `[Document: ${name}]\n${text}` });
+        } else {
+          formatted.push({ role: msg.role, content: `[Document: ${name} (${format})]` });
         }
       }
     }

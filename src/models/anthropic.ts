@@ -102,7 +102,24 @@ export class AnthropicModelProvider extends ModelProvider {
       return parseAnthropicResponse(JSON.parse(result.trim()));
     } catch (error: unknown) {
       const err = error as { stdout?: string; message?: string };
-      if (err.stdout) { try { return parseAnthropicResponse(JSON.parse(err.stdout.trim())); } catch {} }
+      if (err.stdout) {
+        try {
+          const errorResponse = JSON.parse(err.stdout.trim());
+          if (errorResponse.error) {
+            const msg = errorResponse.error.message ?? JSON.stringify(errorResponse.error);
+            const errorType = errorResponse.error.type ?? '';
+            if (errorType === 'rate_limit_error' || msg.toLowerCase().includes('rate limit'))
+              return JSON.stringify({ error: `Throttled: ${msg}` });
+            if (errorType === 'invalid_request_error') {
+              const lower = msg.toLowerCase();
+              if (lower.includes('too long') || lower.includes('context') || lower.includes('input length'))
+                return JSON.stringify({ error: `Context overflow: ${msg}` });
+            }
+            return JSON.stringify({ error: msg });
+          }
+          return parseAnthropicResponse(errorResponse);
+        } catch {}
+      }
       return JSON.stringify({ error: err.message ?? 'Anthropic API error' });
     } finally {
       try { unlinkSync(bodyFile); } catch {}

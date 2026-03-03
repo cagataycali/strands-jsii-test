@@ -50,7 +50,13 @@ export class OpenAIModelProvider extends ModelProvider {
       return parseOpenAIResponse(JSON.parse(result.trim()));
     } catch (error: unknown) {
       const err = error as { stdout?: string; message?: string };
-      if (err.stdout) { try { return parseOpenAIResponse(JSON.parse(err.stdout.trim())); } catch {} }
+      if (err.stdout) {
+        try {
+          const errorResponse = JSON.parse(err.stdout.trim());
+          if (errorResponse.error) return parseOpenAIResponse(errorResponse);
+          return parseOpenAIResponse(errorResponse);
+        } catch {}
+      }
       return JSON.stringify({ error: err.message ?? 'OpenAI API error' });
     } finally { try { unlinkSync(bodyFile); } catch {} }
   }

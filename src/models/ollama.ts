@@ -46,7 +46,7 @@ export class OllamaModelProvider extends ModelProvider {
       const err = error as { stdout?: string; message?: string };
       if (err.stdout) { try { const r = JSON.parse(err.stdout.trim()); if (r.error) return JSON.stringify({ error: r.error }); } catch {} }
       const msg = (error as any).message ?? '';
-      if (msg.includes('Connection refused') || msg.includes('ECONNREFUSED')) return JSON.stringify({ error: `Ollama not reachable at ${this.config.host}. Try: ollama serve` });
+      if (msg.includes('Connection refused') || msg.includes('ECONNREFUSED')) return JSON.stringify({ error: `Ollama server not reachable at ${this.config.host}. Try: ollama serve` });
       return JSON.stringify({ error: msg || 'Ollama API error' });
     } finally { try { unlinkSync(bodyFile); } catch {} }
   }
