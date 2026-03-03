@@ -540,7 +540,7 @@ export function parseOllamaResponse(data: any): string {
   if (data.message?.content) content.push({ text: data.message.content });
   if (data.message?.tool_calls) {
     for (const tc of data.message.tool_calls) {
-      content.push({ toolUse: { name: tc.function?.name ?? 'unknown', toolUseId: tc.function?.name ?? 'unknown', input: tc.function?.arguments ?? {} } });
+      content.push({ toolUse: { name: tc.function?.name ?? 'unknown', toolUseId: `tooluse_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`, input: tc.function?.arguments ?? {} } });
       hasToolUse = true;
     }
   }

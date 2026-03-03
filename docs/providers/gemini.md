@@ -47,7 +47,7 @@ export GEMINI_API_KEY=AIza...
 | `modelId` | string | `gemini-2.5-flash` | Model identifier |
 | `apiKey` | string | `GOOGLE_API_KEY` / `GEMINI_API_KEY` env | API key |
 | `maxTokens` | number | `4096` | Maximum tokens to generate |
-| `temperature` | number | `0.7` | Sampling temperature |
+| `temperature` | number | `-1` (API default) | Sampling temperature |
 
 ## Available Models
 

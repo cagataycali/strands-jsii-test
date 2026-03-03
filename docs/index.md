@@ -90,7 +90,7 @@ Same agent loop. Same tool system. Same model providers. **Native syntax in ever
 |---------|:------:|:----------:|:--:|:----:|:--:|
 | Create & invoke agents | `agent("…")` | `agent("…")` | `agent.Ask("…")` | `agent.ask("…")` | `agent.Ask("…")` |
 | Define tools | `@tool` | `tool(fn)` | `NewTool()` | `Strands.tool()` | `Strands.Tool()` |
-| 4 model providers | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 5 model providers | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Wrap any library | `make_use_tool()` | `make_use_tool()` | — | — | — |
 | Multi-agent delegation | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Hot-reload tools | ✅ | ✅ | ✅ | ✅ | ✅ |

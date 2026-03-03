@@ -45,7 +45,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 | `modelId` | string | `claude-sonnet-4-20250514` | Model identifier |
 | `apiKey` | string | `ANTHROPIC_API_KEY` env | API key |
 | `maxTokens` | number | `4096` | Maximum tokens to generate |
-| `temperature` | number | `0.7` | Sampling temperature |
+| `temperature` | number | `-1` (API default) | Sampling temperature |
 | `baseUrl` | string | `https://api.anthropic.com` | API base URL |
 
 ## Available Models

@@ -46,8 +46,10 @@ agent = Agent(callback_handler=LoggingHandler())
 Use the built-in `PrintingCallbackHandler` to see everything:
 
 ```python
-from strands_jsii import PrintingCallbackHandler
+from strands_jsii import Agent, PrintingCallbackHandler
+```
 
+```python
 agent = Agent(callback_handler=PrintingCallbackHandler())
 ```
 

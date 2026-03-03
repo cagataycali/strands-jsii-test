@@ -68,3 +68,26 @@ agent.call_tool("calculator", '{"expression": "6 * 7"}')
 # To get just the result, use the tool directly
 result = calculator(expression="6 * 7")
 ```
+
+## DirectToolCallResult Shape
+
+The `callTool()` method returns a `DirectToolCallResult` with these fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `toolName` | `string` | Name of the tool that was called |
+| `toolUseId` | `string` | Unique ID for this tool invocation |
+| `inputJson` | `string` | JSON string of input parameters |
+| `resultJson` | `string` | JSON string of tool output |
+| `success` | `boolean` | Whether the tool executed without error |
+| `durationMs` | `number` | Execution time in milliseconds |
+
+```python
+result = agent.call_tool("calculator", '{"expression": "6 * 7"}')
+print(result.tool_name)     # "calculator"
+print(result.result_json)   # '{"result": 42}'
+print(result.success)       # True
+print(result.duration_ms)   # 15
+```
+
+The simpler `toolCall()` method returns just the `resultJson` string directly.

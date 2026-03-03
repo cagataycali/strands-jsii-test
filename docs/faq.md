@@ -50,7 +50,7 @@ Make sure your region has Bedrock access and the model you're using is enabled i
 
 ### Can I use this without AWS?
 
-Yes. Use any of the other three providers:
+Yes. Use any of the other four providers:
 
 ```python
 from strands_jsii import Agent, Anthropic, OpenAI, Gemini
@@ -58,7 +58,7 @@ from strands_jsii import Agent, Anthropic, OpenAI, Gemini
 agent = Agent(model=Anthropic(api_key="sk-ant-..."))
 agent = Agent(model=OpenAI(api_key="sk-..."))
 agent = Agent(model=Gemini(api_key="AIza..."))
-```
+agent = Agent(model=Ollama())  # Local, no API key needed```
 
 ---
 

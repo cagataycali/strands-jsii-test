@@ -13,6 +13,10 @@ The SDK ships with four providers (Bedrock, Anthropic, OpenAI, Gemini), but you 
 
 Your custom provider must implement one method: `converse()`. It receives messages in Bedrock Converse format and must return a response in the same format.
 
+## Note: Ollama is Built-In
+
+Before building a custom Ollama provider, note that the SDK ships with a built-in `OllamaModelProvider`. See **[Ollama](../providers/ollama.md)** for usage. The example below is kept for educational purposes — showing how any HTTP-based LLM API can be wrapped.
+
 ## Step 1: Extend ModelProvider
 
 === "Python"

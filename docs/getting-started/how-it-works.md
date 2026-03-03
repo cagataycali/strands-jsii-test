@@ -109,3 +109,14 @@ strands-jsii/
 - **[Build a CLI Assistant](../tutorials/cli-assistant.md)** — Put this knowledge into practice
 - **[Creating Tools](../tools/creating-tools.md)** — Deep dive into tool creation
 - **[Building from Source](../advanced/building-from-source.md)** — Compile the SDK yourself
+
+## Shared Provider Formats
+
+Under `src/providers/formats.ts`, there's a shared format layer that all providers use. This is the **single source of truth** for:
+
+- **Message formatting** — Converting Bedrock Converse format to each provider's native format
+- **Tool formatting** — Converting tool specifications to each provider's tool format
+- **Response parsing** — Converting each provider's response back to Bedrock Converse format
+- **SSE parsing** — Converting streaming chunks for browser-side providers
+
+This design means the Node.js providers (`src/models/`) and the browser providers (`src/web/`) share the same format logic — zero duplication. Only the transport layer differs (Node.js uses `execSync`+`curl`, browser uses `fetch`).

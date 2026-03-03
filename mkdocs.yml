@@ -27,6 +27,7 @@ nav:
   - Anthropic: providers/anthropic.md
   - OpenAI: providers/openai.md
   - Google Gemini: providers/gemini.md
+  - Ollama: providers/ollama.md
 - Multi-Agent:
   - Agent as Tool: multi-agent/agent-as-tool.md
   - Patterns: multi-agent/patterns.md

@@ -5,28 +5,90 @@ import { tmpdir } from 'os';
 import { ModelProvider } from './provider';
 import { buildGeminiRequest, parseGeminiResponse } from '../providers/formats';
 
+/**
+ * Configuration options for the Gemini model provider.
+ */
 export interface GeminiModelConfigOptions {
-  readonly modelId?: string; readonly apiKey?: string; readonly maxTokens?: number; readonly temperature?: number;
-  readonly topP?: number; readonly topK?: number; readonly stopSequencesJson?: string;
-  readonly geminiToolsJson?: string; readonly additionalParamsJson?: string; readonly thinkingBudgetTokens?: number;
+  /** Gemini model name. Default: gemini-2.5-flash */
+  readonly modelId?: string;
+  /** Google API key. Default: GOOGLE_API_KEY or GEMINI_API_KEY env var */
+  readonly apiKey?: string;
+  /** Maximum tokens to generate. Default: 4096 */
+  readonly maxTokens?: number;
+  /** Sampling temperature. Default: -1 (API default) */
+  readonly temperature?: number;
+  /** Top-P for nucleus sampling. Default: -1 (API default) */
+  readonly topP?: number;
+  /** Top-K sampling. Default: -1 (API default) */
+  readonly topK?: number;
+  /** JSON array of stop sequences. */
+  readonly stopSequencesJson?: string;
+  /** Gemini-specific tools as JSON (e.g., GoogleSearch, CodeExecution). */
+  readonly geminiToolsJson?: string;
+  /** Additional generation config params as JSON. */
+  readonly additionalParamsJson?: string;
+  /** Token budget for Gemini thinking mode. Default: -1 (disabled) */
+  readonly thinkingBudgetTokens?: number;
 }
 
+/**
+ * Resolved configuration for the Gemini model provider.
+ */
 export class GeminiModelConfig {
-  public readonly modelId: string; public readonly apiKey: string; public readonly maxTokens: number;
-  public readonly temperature: number; public readonly topP: number; public readonly topK: number;
-  public readonly stopSequencesJson: string; public readonly geminiToolsJson: string;
-  public readonly additionalParamsJson: string; public readonly thinkingBudgetTokens: number;
+  /** Gemini model name. */
+  public readonly modelId: string;
+  /** Google API key. */
+  public readonly apiKey: string;
+  /** Maximum tokens to generate. */
+  public readonly maxTokens: number;
+  /** Sampling temperature. */
+  public readonly temperature: number;
+  /** Top-P for nucleus sampling. */
+  public readonly topP: number;
+  /** Top-K sampling. */
+  public readonly topK: number;
+  /** Optional stop sequences as JSON array string. */
+  public readonly stopSequencesJson: string;
+  /** Gemini-specific tools as JSON string. */
+  public readonly geminiToolsJson: string;
+  /** Additional generation config as JSON string. */
+  public readonly additionalParamsJson: string;
+  /** Token budget for Gemini thinking mode. */
+  public readonly thinkingBudgetTokens: number;
+
   public constructor(options?: GeminiModelConfigOptions) {
-    this.modelId = options?.modelId ?? 'gemini-2.5-flash'; this.apiKey = options?.apiKey ?? process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY ?? '';
-    this.maxTokens = options?.maxTokens ?? 4096; this.temperature = options?.temperature ?? -1; this.topP = options?.topP ?? -1; this.topK = options?.topK ?? -1;
-    this.stopSequencesJson = options?.stopSequencesJson ?? ''; this.geminiToolsJson = options?.geminiToolsJson ?? '';
-    this.additionalParamsJson = options?.additionalParamsJson ?? ''; this.thinkingBudgetTokens = options?.thinkingBudgetTokens ?? -1;
+    this.modelId = options?.modelId ?? 'gemini-2.5-flash';
+    this.apiKey = options?.apiKey ?? process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY ?? '';
+    this.maxTokens = options?.maxTokens ?? 4096;
+    this.temperature = options?.temperature ?? -1;
+    this.topP = options?.topP ?? -1;
+    this.topK = options?.topK ?? -1;
+    this.stopSequencesJson = options?.stopSequencesJson ?? '';
+    this.geminiToolsJson = options?.geminiToolsJson ?? '';
+    this.additionalParamsJson = options?.additionalParamsJson ?? '';
+    this.thinkingBudgetTokens = options?.thinkingBudgetTokens ?? -1;
   }
 }
 
+/**
+ * Google Gemini model provider.
+ *
+ * @example
+ *
+ * Python:
+ *   model = Gemini(api_key="AIza...", model_id="gemini-2.5-flash")
+ *
+ * TypeScript:
+ *   const model = new GeminiModelProvider(new GeminiModelConfig({ modelId: "gemini-2.5-flash" }));
+ */
 export class GeminiModelProvider extends ModelProvider {
+  /** The model configuration. */
   public readonly config: GeminiModelConfig;
-  public constructor(config?: GeminiModelConfig) { super(); this.config = config ?? new GeminiModelConfig(); }
+
+  public constructor(config?: GeminiModelConfig) {
+    super();
+    this.config = config ?? new GeminiModelConfig();
+  }
 
   public converse(messagesJson: string, systemPrompt?: string, toolSpecsJson?: string): string {
     const req = buildGeminiRequest({

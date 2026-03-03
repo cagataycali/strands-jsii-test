@@ -88,7 +88,11 @@ Static factory class — works identically in all five languages via jsii.
 | `Strands.gemini(modelId?, apiKey?)` | `GeminiModelProvider` |
 | `Strands.tool(name, desc, handler?)` | `ToolBuilder` |
 | `Strands.toolDirect(name, desc, schema, handler)` | `FunctionTool` |
-
+| `Strands.anthropicWith(options)` | `AnthropicModelProvider` |
+| `Strands.openaiWith(options)` | `OpenAIModelProvider` |
+| `Strands.geminiWith(options)` | `GeminiModelProvider` |
+| `Strands.ollama(modelId?, host?)` | `OllamaModelProvider` |
+| `Strands.ollamaWith(options)` | `OllamaModelProvider` |
 ---
 
 ## AgentResponse
@@ -229,7 +233,7 @@ Extends `ToolDefinition`. Implement `executeWithContext(inputJson, context)` for
 | `modelId` | `claude-sonnet-4-20250514` |
 | `apiKey` | `ANTHROPIC_API_KEY` env |
 | `maxTokens` | `4096` |
-| `temperature` | `0.7` |
+| `temperature` | `-1` (API default) |
 | `baseUrl` | `https://api.anthropic.com` |
 
 ### OpenAIModelProvider
@@ -238,8 +242,8 @@ Extends `ToolDefinition`. Implement `executeWithContext(inputJson, context)` for
 |--------|---------|
 | `modelId` | `gpt-4o` |
 | `apiKey` | `OPENAI_API_KEY` env |
-| `maxTokens` | `4096` |
-| `temperature` | `0.7` |
+| `maxTokens` | `-1` (API default) |
+| `temperature` | `-1` (API default) |
 | `baseUrl` | `https://api.openai.com` |
 
 ### GeminiModelProvider
@@ -249,7 +253,7 @@ Extends `ToolDefinition`. Implement `executeWithContext(inputJson, context)` for
 | `modelId` | `gemini-2.5-flash` |
 | `apiKey` | `GOOGLE_API_KEY` / `GEMINI_API_KEY` env |
 | `maxTokens` | `4096` |
-| `temperature` | `0.7` |
+| `temperature` | `-1` (API default) |
 
 ### ModelProvider (abstract)
 
@@ -358,3 +362,53 @@ Identifier.generate("custom")   # "custom-lx1234-abc123"
 | `Sugar.toolOf(lambda)` | Java | `FunctionTool(...)` |
 | `@ToolMethod` | Java | `FunctionTool(...)` via reflection |
 | `Sugar.ToolOf(delegate)` | C# | `FunctionTool(...)` |
+
+### OllamaModelProvider
+
+| Option | Default |
+|--------|---------|
+| `modelId` | `llama3` |
+| `host` | `http://localhost:11434` |
+| `maxTokens` | `-1` (model default) |
+| `temperature` | `-1` (model default) |
+| `topP` | `-1` (model default) |
+| `topK` | `-1` (model default) |
+| `keepAlive` | `5m` |
+
+
+### ContextAwareToolDefinition
+
+For tools that need access to the agent's state (conversation history, system prompt, etc.), extend `ContextAwareToolDefinition` instead of `ToolDefinition`:
+
+```python
+from strands_jsii import ContextAwareToolDefinition, ToolSpecification, ToolContext
+import json
+
+class SmartTool(ContextAwareToolDefinition):
+    def __init__(self):
+        super().__init__(ToolSpecification(
+            "smart_tool",
+            "A tool that knows about the agent's state",
+            '{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}'
+        ))
+
+    def execute_with_context(self, input_json, context):
+        params = json.loads(input_json)
+        # Access agent state via context
+        print(f"Tool: {context.tool_name}")
+        print(f"ToolUseId: {context.tool_use_id}")
+        print(f"System prompt: {context.system_prompt[:50]}...")
+        return json.dumps({"result": f"Processed: {params['query']}"})
+```
+
+**ToolContext fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent` | `object` | Reference to the parent agent |
+| `toolUseId` | `string` | Unique ID for this tool invocation |
+| `toolName` | `string` | Name of the tool being called |
+| `messagesJson` | `string` | Current conversation messages as JSON |
+| `systemPrompt` | `string` | The agent's system prompt |
+| `invocationStateJson` | `string` | Invocation-scoped state as JSON (default: `"{}"`) |
+

@@ -5,29 +5,90 @@ import { tmpdir } from 'os';
 import { ModelProvider } from './provider';
 import { buildOllamaRequest, parseOllamaResponse } from '../providers/formats';
 
+/**
+ * Configuration options for the Ollama model provider.
+ */
 export interface OllamaModelConfigOptions {
-  readonly modelId?: string; readonly host?: string; readonly maxTokens?: number; readonly temperature?: number;
-  readonly topP?: number; readonly topK?: number; readonly keepAlive?: string;
-  readonly stopSequencesJson?: string; readonly optionsJson?: string; readonly additionalArgsJson?: string;
+  /** Ollama model name (e.g., "llama3", "qwen3:8b"). Default: llama3 */
+  readonly modelId?: string;
+  /** Ollama server URL. Default: http://localhost:11434 */
+  readonly host?: string;
+  /** Maximum tokens to generate (num_predict). Default: -1 (model default) */
+  readonly maxTokens?: number;
+  /** Sampling temperature. Default: -1 (model default) */
+  readonly temperature?: number;
+  /** Top-P for nucleus sampling. Default: -1 (model default) */
+  readonly topP?: number;
+  /** Top-K sampling. Default: -1 (model default) */
+  readonly topK?: number;
+  /** How long to keep model loaded in memory. Default: "5m" */
+  readonly keepAlive?: string;
+  /** JSON array of stop sequences. */
+  readonly stopSequencesJson?: string;
+  /** Additional Ollama options as JSON (e.g., num_ctx, num_gpu). */
+  readonly optionsJson?: string;
+  /** Extra request body fields as JSON. */
+  readonly additionalArgsJson?: string;
 }
 
+/**
+ * Resolved configuration for the Ollama model provider.
+ */
 export class OllamaModelConfig {
-  public readonly modelId: string; public readonly host: string; public readonly maxTokens: number;
-  public readonly temperature: number; public readonly topP: number; public readonly topK: number;
-  public readonly keepAlive: string; public readonly stopSequencesJson: string;
-  public readonly optionsJson: string; public readonly additionalArgsJson: string;
+  /** Ollama model name. */
+  public readonly modelId: string;
+  /** Ollama server URL. */
+  public readonly host: string;
+  /** Maximum tokens to generate (num_predict). */
+  public readonly maxTokens: number;
+  /** Sampling temperature. */
+  public readonly temperature: number;
+  /** Top-P for nucleus sampling. */
+  public readonly topP: number;
+  /** Top-K sampling. */
+  public readonly topK: number;
+  /** How long to keep model loaded in memory. */
+  public readonly keepAlive: string;
+  /** Optional stop sequences as JSON array string. */
+  public readonly stopSequencesJson: string;
+  /** Additional Ollama-specific options as JSON string. */
+  public readonly optionsJson: string;
+  /** Extra request body fields as JSON string. */
+  public readonly additionalArgsJson: string;
+
   public constructor(options?: OllamaModelConfigOptions) {
-    this.modelId = options?.modelId ?? 'llama3'; this.host = options?.host ?? 'http://localhost:11434';
-    this.maxTokens = options?.maxTokens ?? -1; this.temperature = options?.temperature ?? -1;
-    this.topP = options?.topP ?? -1; this.topK = options?.topK ?? -1;
-    this.keepAlive = options?.keepAlive ?? '5m'; this.stopSequencesJson = options?.stopSequencesJson ?? '';
-    this.optionsJson = options?.optionsJson ?? ''; this.additionalArgsJson = options?.additionalArgsJson ?? '';
+    this.modelId = options?.modelId ?? 'llama3';
+    this.host = options?.host ?? 'http://localhost:11434';
+    this.maxTokens = options?.maxTokens ?? -1;
+    this.temperature = options?.temperature ?? -1;
+    this.topP = options?.topP ?? -1;
+    this.topK = options?.topK ?? -1;
+    this.keepAlive = options?.keepAlive ?? '5m';
+    this.stopSequencesJson = options?.stopSequencesJson ?? '';
+    this.optionsJson = options?.optionsJson ?? '';
+    this.additionalArgsJson = options?.additionalArgsJson ?? '';
   }
 }
 
+/**
+ * Ollama model provider for local inference.
+ *
+ * @example
+ *
+ * Python:
+ *   model = Ollama(model_id="llama3")
+ *
+ * TypeScript:
+ *   const model = new OllamaModelProvider(new OllamaModelConfig({ modelId: "llama3" }));
+ */
 export class OllamaModelProvider extends ModelProvider {
+  /** The model configuration. */
   public readonly config: OllamaModelConfig;
-  public constructor(config?: OllamaModelConfig) { super(); this.config = config ?? new OllamaModelConfig(); }
+
+  public constructor(config?: OllamaModelConfig) {
+    super();
+    this.config = config ?? new OllamaModelConfig();
+  }
 
   public converse(messagesJson: string, systemPrompt?: string, toolSpecsJson?: string): string {
     const req = buildOllamaRequest({

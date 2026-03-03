@@ -44,8 +44,8 @@ export OPENAI_API_KEY=sk-...
 |-----------|------|---------|-------------|
 | `modelId` | string | `gpt-4o` | Model identifier |
 | `apiKey` | string | `OPENAI_API_KEY` env | API key |
-| `maxTokens` | number | `4096` | Maximum tokens to generate |
-| `temperature` | number | `0.7` | Sampling temperature |
+| `maxTokens` | number | `-1` (API default) | Maximum tokens to generate |
+| `temperature` | number | `-1` (API default) | Sampling temperature |
 | `baseUrl` | string | `https://api.openai.com` | API base URL |
 
 ## Compatible Endpoints

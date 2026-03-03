@@ -43,7 +43,7 @@ agent = Agent(
 
 ## Summarizing
 
-When old context matters but you can't keep everything. Automatically summarizes old messages when the count exceeds a threshold.
+When old context matters but you cannot keep everything. When message count exceeds a threshold, it condenses older messages into a text summary (not LLM-based — it concatenates role/content into a summary block) while preserving recent messages.
 
 ```python
 from strands_jsii import Agent, SummarizingConversationManager

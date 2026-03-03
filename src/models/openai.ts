@@ -11,28 +11,103 @@ export class OpenAIToolChoice {
   public constructor(choiceMode?: string, functionName?: string) { this.choiceMode = choiceMode ?? 'auto'; this.functionName = functionName ?? ''; }
 }
 
+/**
+ * Configuration options for the OpenAI model provider.
+ */
 export interface OpenAIModelConfigOptions {
-  readonly modelId?: string; readonly apiKey?: string; readonly maxTokens?: number; readonly temperature?: number;
-  readonly topP?: number; readonly frequencyPenalty?: number; readonly presencePenalty?: number; readonly seed?: number;
-  readonly baseUrl?: string; readonly stopSequencesJson?: string; readonly toolChoice?: OpenAIToolChoice; readonly additionalParamsJson?: string;
+  /** Model identifier. Default: gpt-4o */
+  readonly modelId?: string;
+  /** OpenAI API key. Default: OPENAI_API_KEY env var */
+  readonly apiKey?: string;
+  /** Maximum tokens to generate. Default: -1 (API default) */
+  readonly maxTokens?: number;
+  /** Sampling temperature. Default: -1 (API default) */
+  readonly temperature?: number;
+  /** Top-P for nucleus sampling. Default: -1 (API default) */
+  readonly topP?: number;
+  /** Frequency penalty. Default: 999 (unset sentinel) */
+  readonly frequencyPenalty?: number;
+  /** Presence penalty. Default: 999 (unset sentinel) */
+  readonly presencePenalty?: number;
+  /** Random seed for deterministic generation. Default: -1 (unset) */
+  readonly seed?: number;
+  /** API base URL (supports OpenAI-compatible endpoints). Default: https://api.openai.com */
+  readonly baseUrl?: string;
+  /** JSON array of stop sequences. */
+  readonly stopSequencesJson?: string;
+  /** Tool choice configuration. */
+  readonly toolChoice?: OpenAIToolChoice;
+  /** Additional request body params as JSON. */
+  readonly additionalParamsJson?: string;
 }
 
+/**
+ * Resolved configuration for the OpenAI model provider.
+ */
 export class OpenAIModelConfig {
-  public readonly modelId: string; public readonly apiKey: string; public readonly maxTokens: number; public readonly temperature: number;
-  public readonly topP: number; public readonly frequencyPenalty: number; public readonly presencePenalty: number; public readonly seed: number;
-  public readonly baseUrl: string; public readonly stopSequencesJson: string; public readonly toolChoice: OpenAIToolChoice | undefined; public readonly additionalParamsJson: string;
+  /** Model identifier. */
+  public readonly modelId: string;
+  /** OpenAI API key. */
+  public readonly apiKey: string;
+  /** Maximum tokens to generate. */
+  public readonly maxTokens: number;
+  /** Sampling temperature. */
+  public readonly temperature: number;
+  /** Top-P for nucleus sampling. */
+  public readonly topP: number;
+  /** Frequency penalty. */
+  public readonly frequencyPenalty: number;
+  /** Presence penalty. */
+  public readonly presencePenalty: number;
+  /** Random seed for deterministic generation. */
+  public readonly seed: number;
+  /** API base URL. */
+  public readonly baseUrl: string;
+  /** Optional stop sequences as JSON array string. */
+  public readonly stopSequencesJson: string;
+  /** Tool choice configuration. */
+  public readonly toolChoice: OpenAIToolChoice | undefined;
+  /** Additional request body params as JSON string. */
+  public readonly additionalParamsJson: string;
+
   public constructor(options?: OpenAIModelConfigOptions) {
-    this.modelId = options?.modelId ?? 'gpt-4o'; this.apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY ?? '';
-    this.maxTokens = options?.maxTokens ?? -1; this.temperature = options?.temperature ?? -1; this.topP = options?.topP ?? -1;
-    this.frequencyPenalty = options?.frequencyPenalty ?? 999; this.presencePenalty = options?.presencePenalty ?? 999;
-    this.seed = options?.seed ?? -1; this.baseUrl = options?.baseUrl ?? 'https://api.openai.com';
-    this.stopSequencesJson = options?.stopSequencesJson ?? ''; this.toolChoice = options?.toolChoice; this.additionalParamsJson = options?.additionalParamsJson ?? '';
+    this.modelId = options?.modelId ?? 'gpt-4o';
+    this.apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY ?? '';
+    this.maxTokens = options?.maxTokens ?? -1;
+    this.temperature = options?.temperature ?? -1;
+    this.topP = options?.topP ?? -1;
+    this.frequencyPenalty = options?.frequencyPenalty ?? 999;
+    this.presencePenalty = options?.presencePenalty ?? 999;
+    this.seed = options?.seed ?? -1;
+    this.baseUrl = options?.baseUrl ?? 'https://api.openai.com';
+    this.stopSequencesJson = options?.stopSequencesJson ?? '';
+    this.toolChoice = options?.toolChoice;
+    this.additionalParamsJson = options?.additionalParamsJson ?? '';
   }
 }
 
+/**
+ * OpenAI model provider.
+ *
+ * Also works with any OpenAI-compatible endpoint (vLLM, Together, Fireworks, etc.)
+ * by setting the `baseUrl` config option.
+ *
+ * @example
+ *
+ * Python:
+ *   model = OpenAI(api_key="sk-...", model_id="gpt-4o")
+ *
+ * TypeScript:
+ *   const model = new OpenAIModelProvider(new OpenAIModelConfig({ modelId: "gpt-4o" }));
+ */
 export class OpenAIModelProvider extends ModelProvider {
+  /** The model configuration. */
   public readonly config: OpenAIModelConfig;
-  public constructor(config?: OpenAIModelConfig) { super(); this.config = config ?? new OpenAIModelConfig(); }
+
+  public constructor(config?: OpenAIModelConfig) {
+    super();
+    this.config = config ?? new OpenAIModelConfig();
+  }
 
   public converse(messagesJson: string, systemPrompt?: string, toolSpecsJson?: string): string {
     const req = buildOpenAIRequest({

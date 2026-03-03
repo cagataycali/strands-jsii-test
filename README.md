@@ -126,7 +126,7 @@ agent.Ask("What is 42 * 17?");
 | **Model shorthand** | `Bedrock()` | `Bedrock()` | `BedrockDefault()` | `Strands.bedrock()` | `Strands.Bedrock()` |
 | **Wrap any package** | `make_use_tool()` | `make_use_tool()` | — | — | — |
 | **Hot-reload tools** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **4 model providers** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **5 model providers** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Hooks & callbacks** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Guardrails** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Typed errors** | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -265,7 +265,7 @@ var tool = Sugar.toolOf("greet", "Greet someone",
 
 ## Model Providers
 
-4 providers, all normalizing to Bedrock Converse message format internally. Same sugar syntax across all languages.
+5 providers, all normalizing to Bedrock Converse message format internally. Same sugar syntax across all languages.
 
 | Provider | Python | TypeScript | Java | C# |
 |----------|--------|------------|------|----|
@@ -273,7 +273,7 @@ var tool = Sugar.toolOf("greet", "Greet someone",
 | **Anthropic** | `Anthropic(api_key="…")` | `Anthropic({apiKey:"…"})` | `Strands.anthropic(…)` | `Strands.Anthropic(…)` |
 | **OpenAI** | `OpenAI(api_key="…")` | `OpenAI({apiKey:"…"})` | `Strands.openai(…)` | `Strands.Openai(…)` |
 | **Gemini** | `Gemini(api_key="…")` | `Gemini({apiKey:"…"})` | `Strands.gemini(…)` | `Strands.Gemini(…)` |
-| **Custom** | Extend `ModelProvider` | Extend `ModelProvider` | Extend `ModelProvider` | Extend `ModelProvider` |
+| **Ollama** | `Ollama()` | `Strands.ollama()` | `Strands.ollama()` | `Strands.Ollama()` || **Custom** | Extend `ModelProvider` | Extend `ModelProvider` | Extend `ModelProvider` | Extend `ModelProvider` |
 
 <details>
 <summary><b>📦 All five languages</b></summary>
@@ -401,7 +401,7 @@ agent = Agent(conversation_manager=SlidingWindowConversationManager(window_size=
 |---------|----------|
 | `NullConversationManager` | Keep everything (default) |
 | `SlidingWindowConversationManager(n)` | Keep first + last N messages |
-| `SummarizingConversationManager` | Summarize old messages via the model |
+| `SummarizingConversationManager` | Condense old messages into a text summary |
 
 ---
 
@@ -450,9 +450,8 @@ from strands_jsii import RetryStrategy
 
 agent = Agent(retry_strategy=RetryStrategy(
     max_retries=3,
-    initial_delay_ms=1000,
+    initial_delay=1.0,
     backoff_multiplier=2.0,
-    retryable_errors=["ModelThrottledError"],
 ))
 ```
 
