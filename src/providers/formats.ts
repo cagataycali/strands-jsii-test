@@ -402,8 +402,9 @@ export function buildGeminiRequest(config: any, messages: any[], systemPrompt?: 
 
   const modelId = config.modelId ?? GEMINI_DEFAULTS.modelId;
   const action = stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
+  const separator = action.includes('?') ? '&' : '?';
   return {
-    url: config.proxyUrl ?? `${config.baseUrl ?? GEMINI_DEFAULTS.baseUrl}/v1beta/models/${modelId}:${action}&key=${config.apiKey ?? ''}`,
+    url: config.proxyUrl ?? `${config.baseUrl ?? GEMINI_DEFAULTS.baseUrl}/v1beta/models/${modelId}:${action}${separator}key=${config.apiKey ?? ''}`,
     headers: { 'content-type': 'application/json' },
     body,
   };

@@ -65,5 +65,8 @@ export { Identifier } from './utils/identifier';
 // ── Agent (the star of the show) ──
 export { AgentConfig, AgentConfigOptions, StrandsAgent } from './agent';
 
+// ── Telemetry & Tracing ──
+export { SpanData, SpanEvent, SpanExporter, ConsoleSpanExporter, BufferedSpanExporter, TracingCallbackHandler, TracingHookProvider } from './telemetry/tracer';
+
 // ── Universal Factory (the DX equalizer) ──
 export { Strands, QuickAgentOptions } from './strands';
