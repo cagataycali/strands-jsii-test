@@ -1,0 +1,8 @@
+node_modules/
+lib/
+dist/
+.jsii
+*.js
+*.d.ts
+*.js.map
+!jest.config.js
