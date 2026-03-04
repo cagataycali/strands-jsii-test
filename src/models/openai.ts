@@ -1,7 +1,4 @@
-import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { Worker } from 'worker_threads';
 import { ModelProvider } from './provider';
 import { buildOpenAIRequest, parseOpenAIResponse } from '../providers/formats';
 
@@ -45,29 +42,17 @@ export interface OpenAIModelConfigOptions {
  * Resolved configuration for the OpenAI model provider.
  */
 export class OpenAIModelConfig {
-  /** Model identifier. */
   public readonly modelId: string;
-  /** OpenAI API key. */
   public readonly apiKey: string;
-  /** Maximum tokens to generate. */
   public readonly maxTokens: number;
-  /** Sampling temperature. */
   public readonly temperature: number;
-  /** Top-P for nucleus sampling. */
   public readonly topP: number;
-  /** Frequency penalty. */
   public readonly frequencyPenalty: number;
-  /** Presence penalty. */
   public readonly presencePenalty: number;
-  /** Random seed for deterministic generation. */
   public readonly seed: number;
-  /** API base URL. */
   public readonly baseUrl: string;
-  /** Optional stop sequences as JSON array string. */
   public readonly stopSequencesJson: string;
-  /** Tool choice configuration. */
   public readonly toolChoice: OpenAIToolChoice | undefined;
-  /** Additional request body params as JSON string. */
   public readonly additionalParamsJson: string;
 
   public constructor(options?: OpenAIModelConfigOptions) {
@@ -88,20 +73,12 @@ export class OpenAIModelConfig {
 
 /**
  * OpenAI model provider.
+ * Uses worker_threads + Atomics.wait — no fork, no temp files, no curl.
  *
  * Also works with any OpenAI-compatible endpoint (vLLM, Together, Fireworks, etc.)
  * by setting the `baseUrl` config option.
- *
- * @example
- *
- * Python:
- *   model = OpenAI(api_key="sk-...", model_id="gpt-4o")
- *
- * TypeScript:
- *   const model = new OpenAIModelProvider(new OpenAIModelConfig({ modelId: "gpt-4o" }));
  */
 export class OpenAIModelProvider extends ModelProvider {
-  /** The model configuration. */
   public readonly config: OpenAIModelConfig;
 
   public constructor(config?: OpenAIModelConfig) {
@@ -117,23 +94,73 @@ export class OpenAIModelProvider extends ModelProvider {
       toolChoice: this.config.toolChoice, additionalParamsJson: this.config.additionalParamsJson || undefined,
     }, JSON.parse(messagesJson), systemPrompt, toolSpecsJson);
 
-    const bodyFile = join(tmpdir(), `strands-jsii-openai-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
-    writeFileSync(bodyFile, JSON.stringify(req.body));
+    const rawResponse = this._httpWorker(req.url, req.headers, req.body);
+
     try {
-      const headerFlags = Object.entries(req.headers).map(([k, v]) => `-H "${k}: ${v}"`).join(' ');
-      const result = execSync(`curl -s -X POST "${req.url}" ${headerFlags} -d @"${bodyFile}"`, { encoding: 'utf-8', timeout: 300000, maxBuffer: 10 * 1024 * 1024 });
-      return parseOpenAIResponse(JSON.parse(result.trim()));
-    } catch (error: unknown) {
-      const err = error as { stdout?: string; message?: string };
-      if (err.stdout) {
-        try {
-          const errorResponse = JSON.parse(err.stdout.trim());
-          if (errorResponse.error) return parseOpenAIResponse(errorResponse);
-          return parseOpenAIResponse(errorResponse);
-        } catch {}
+      return parseOpenAIResponse(JSON.parse(rawResponse));
+    } catch {
+      return JSON.stringify({ error: rawResponse || 'OpenAI API error' });
+    }
+  }
+
+  private _httpWorker(url: string, headers: Record<string, string>, body: unknown): string {
+    const DATA_SIZE = 10 * 1024 * 1024;
+    const signalBuf = new SharedArrayBuffer(4);
+    const signal = new Int32Array(signalBuf);
+    const dataBuf = new SharedArrayBuffer(DATA_SIZE);
+    const dataView = new Uint8Array(dataBuf);
+    const lenBuf = new SharedArrayBuffer(4);
+    const lenView = new Int32Array(lenBuf);
+
+    const workerCode = `
+      const { workerData } = require('worker_threads');
+      const signal = new Int32Array(workerData.signal);
+      const dataView = new Uint8Array(workerData.data);
+      const lenView = new Int32Array(workerData.len);
+
+      function done(s) {
+        const enc = new TextEncoder().encode(s);
+        if (enc.length > dataView.length) {
+          const t = new TextEncoder().encode(JSON.stringify({ error: 'Response too large' }));
+          dataView.set(t); Atomics.store(lenView, 0, t.length);
+        } else {
+          dataView.set(enc); Atomics.store(lenView, 0, enc.length);
+        }
+        Atomics.store(signal, 0, 1); Atomics.notify(signal, 0);
       }
-      return JSON.stringify({ error: err.message ?? 'OpenAI API error' });
-    } finally { try { unlinkSync(bodyFile); } catch {} }
+
+      const https = require('https');
+      const http = require('http');
+      const url = new URL(workerData.url);
+      const mod = url.protocol === 'https:' ? https : http;
+      const postData = JSON.stringify(workerData.body);
+      const opts = {
+        hostname: url.hostname, port: url.port, path: url.pathname + url.search,
+        method: 'POST', headers: { ...workerData.headers, 'content-length': Buffer.byteLength(postData) },
+      };
+      const req = mod.request(opts, (res) => {
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => done(Buffer.concat(chunks).toString()));
+      });
+      req.on('error', e => done(JSON.stringify({ error: e.message })));
+      req.setTimeout(300000, () => { req.destroy(); done(JSON.stringify({ error: 'Request timeout' })); });
+      req.write(postData);
+      req.end();
+    `;
+
+    const worker = new Worker(workerCode, {
+      eval: true,
+      workerData: { signal: signalBuf, data: dataBuf, len: lenBuf, url, headers, body },
+    });
+
+    Atomics.wait(signal, 0, 0, 300000);
+    const len = Atomics.load(lenView, 0);
+    const result = new TextDecoder().decode(dataView.slice(0, len));
+    worker.terminate();
+
+    if (len === 0) return JSON.stringify({ error: 'Request timed out (300s)' });
+    return result;
   }
 
   public get modelId(): string { return this.config.modelId; }

@@ -119,6 +119,19 @@ Same agent loop. Same tool system. Same model providers. **Native syntax in ever
 
 </div>
 
+## Performance
+
+Wondering about the overhead of the JSII bridge? We benchmarked it honestly — full process tree, not just the Python side.
+
+| | Native Python | JSII Bridge |
+|---|:---:|:---:|
+| Agent construction | 98.5ms | **3.9ms (25× faster)** |
+| Invoke (50 tool calls) | 15.2s | 17.5s (+15%) |
+| Total memory | **78 MB** | 159 MB (2× more) |
+| Python CPU | 0.65s | **0.06s (10× less)** |
+
+The trade-off: 80 MB fixed memory for the Node.js runtime, in exchange for 25× faster construction, 10× less Python CPU, and 5 languages from one codebase. **[Full benchmarks →](benchmarks.md)**
+
 ## Design Principles
 
 1. **Simplest thing that works.** `Agent()` then `agent("prompt")`. If it takes more than two lines to start, we failed.

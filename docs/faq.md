@@ -20,6 +20,22 @@ The **jsii-native** API (`Strands.agent()`, `Strands.tool()`, etc.) is generated
 
 ---
 
+## Performance
+
+### Is the JSII bridge slower than native Python?
+
+Invoke is about **15% slower** (mostly Bedrock network variance, not bridge overhead). Agent construction is actually **25× faster** because Node.js is already running. See [full benchmarks](benchmarks.md).
+
+### How much memory does the JSII bridge use?
+
+**158.9 MB total** across three processes (vs 78.2 MB for native). The extra 80 MB is a fixed cost for two Node.js processes — it doesn't grow with conversation length or tool count.
+
+### Why does `ps` show hundreds of GB for Node.js?
+
+That's **virtual memory** (VSZ), not physical RAM. V8 reserves a large address space via `--max-old-space-size`. Check **RSS** instead — that's the real physical memory usage (~122 MB for both Node.js processes combined).
+
+---
+
 ## Installation & Setup
 
 ### I get "Module not found" errors

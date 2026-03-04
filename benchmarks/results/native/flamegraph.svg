@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/flameprof.py", line 404, in <module>
+    render(s.stats, get_out(args.out), args.format, args.threshold / 100,
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+           args.width, args.row_height, args.font_size, args.log_mult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/flameprof.py", line 305, in render
+    blocks, bblocks, maxw = prepare(funcs, calls, threshold=threshold)
+                            ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/flameprof.py", line 232, in prepare
+    _calc_back((f for f in funcs if f != 'root'), 0, None, 0, set(), 0)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/flameprof.py", line 225, in _calc_back
+    _calc_back(func['called'], level+1, name, origin, visited | {key}, ttt)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/flameprof.py", line 225, in _calc_back
+    _calc_back(func['called'], level+1, name, origin, visited | {key}, ttt)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/flameprof.py", line 225, in _calc_back
+    _calc_back(func['called'], level+1, name, origin, visited | {key}, ttt)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [Previous line repeated 12 more times]
+  File "/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/flameprof.py", line 199, in _calc_back
+    factor = pw / sum(calls[(r, to)][3] for r in names)
+             ~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ZeroDivisionError: float division by zero

@@ -1,0 +1,158 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="504"
+     xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<style type="text/css">
+    .func_g:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+</style>
+<svg class="func_g" x="0.0" y="216" width="1198.9956851263016" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands_jsii/__init__.py:7963:__call__ 100.00% (1 1 4.501000000000001e-06 16.871904792000002)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 165, 95)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">__call__</text>
+</g></svg>
+<svg class="func_g" x="0.0" y="192" width="1198.9953649976233" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands_jsii/__init__.py:5632:invoke 100.00% (1 1 1.3499e-05 16.871900291)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 140, 79)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">invoke</text>
+</g></svg>
+<svg class="func_g" x="0.0" y="168" width="1198.9855173245467" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:147:wrapped 100.00% (1 1 1.2041e-05 16.871761833)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 240, 141)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">wrapped</text>
+</g></svg>
+<svg class="func_g" x="0.0050705651459453955" y="144" width="1198.9795903565096" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:394:invoke 100.00% (1 1 1.7585000000000002e-05 16.8716785)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 115, 64)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">invoke</text>
+</g></svg>
+<svg class="func_g" x="0.005672131100111447" y="120" width="232.29532704207512" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:256:_callback_till_result 19.44% (1 1 0.000200299 3.2801255830000002)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 115, 64)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">_callback_till_result</text>
+</g></svg>
+<svg class="func_g" x="0.005672131100111447" y="96" width="1" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:210:_handle_callback 0.11% (50 50 0.0008218650000000001 0.018179455)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 240, 141)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">_handle_callback</text>
+</g></svg>
+<svg class="func_g" x="1.2986658876966823" y="96" width="230.98772891703084" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:438:sync_complete 19.33% (50 50 0.000133542 3.2617407910000003)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 190, 110)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">sync_complete</text>
+</g></svg>
+<svg class="func_g" x="1.320915719876119" y="72" width="230.95194178828953" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:400:sync_complete 19.33% (50 50 0.000149251 3.261237625)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 190, 110)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">sync_complete</text>
+</g></svg>
+<svg class="func_g" x="1.320915719876119" y="48" width="230.9378473070877" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:320:send 19.33% (50 50 0.000570325 3.2610394570000003)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 165, 95)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">send</text>
+</g></svg>
+<svg class="func_g" x="1.5954884818087007" y="24" width="230.5952145521818" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:249:_next_message 19.30% (10 10 2.163888265194798e-05 3.2562220503284216)</title>
+    <rect height="100%" width="100%" fill="rgb(85, 218, 84)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">_next_message</text>
+</g></svg>
+<svg class="func_g" x="1.6672319281630708" y="0" width="230.52193206408117" height="23"><g>
+    <title>~:0:&lt;method 'readline' of '_io.BufferedReader' objects&gt; 19.29% (10 10 3.2551303678183015 3.2551917006551023)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 240, 141)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">&lt;method 'readline' of '_io.BufferedReader' objects&gt;</text>
+</g></svg>
+<svg class="func_g" x="233.3009991731752" y="120" width="965.6822806645717" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:379:invoke 80.56% (1 1 1.1124e-05 13.591525041)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 90, 49)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">invoke</text>
+</g></svg>
+<svg class="func_g" x="233.3009991731752" y="96" width="965.6814776046062" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:320:send 80.56% (1 1 0.000182627 13.59151375)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 165, 95)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">send</text>
+</g></svg>
+<svg class="func_g" x="234.44556125111558" y="72" width="964.4093076937405" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:249:_next_message 80.45% (41 41 9.020211734805204e-05 13.57362707767158)</title>
+    <rect height="100%" width="100%" fill="rgb(85, 218, 84)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">_next_message</text>
+</g></svg>
+<svg class="func_g" x="234.7446252495253" y="48" width="964.1038281688717" height="23"><g>
+    <title>~:0:&lt;method 'readline' of '_io.BufferedReader' objects&gt; 80.43% (41 41 13.5690763771817 13.569332044344897)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 240, 141)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">&lt;method 'readline' of '_io.BufferedReader' objects&gt;</text>
+</g></svg>
+<svg class="func_g" x="3.3732979443506554" y="264" width="1195.6032139563545" height="23"><g>
+    <title>~:0:&lt;method 'readline' of '_io.BufferedReader' objects&gt; 99.72% (51 51 16.824206745 16.824523745)</title>
+    <rect height="100%" width="100%" fill="rgb(255, 240, 141)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">&lt;method 'readline' of '_io.BufferedReader' objects&gt;</text>
+</g></svg>
+<svg class="func_g" x="3.3732979443506554" y="288" width="1195.6032139563545" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:249:_next_message 99.72% (51 51 16.824206745 16.824523745)</title>
+    <rect height="100%" width="100%" fill="rgb(218, 218, 218)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">_next_message</text>
+</g></svg>
+<svg class="func_g" x="3.3732979443506554" y="312" width="1195.6032139563545" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:320:send 0.00% (51 51 0.000111841 16.829849128)</title>
+    <rect height="100%" width="100%" fill="rgb(211, 211, 211)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">send</text>
+</g></svg>
+<svg class="func_g" x="3.3732979443506554" y="336" width="964.0554925426135" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:379:invoke 0.00% (1 1 0.000182627 13.59151375)</title>
+    <rect height="100%" width="100%" fill="rgb(232, 232, 232)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">invoke</text>
+</g></svg>
+<svg class="func_g" x="3.3732979443506554" y="360" width="964.0554925426135" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:394:invoke 0.00% (1 1 1.1124e-05 13.591525041)</title>
+    <rect height="100%" width="100%" fill="rgb(225, 225, 225)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">invoke</text>
+</g></svg>
+<svg class="func_g" x="3.3732979443506554" y="384" width="964.0554925426135" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:147:wrapped 0.00% (1 1 1.7585000000000002e-05 16.8716785)</title>
+    <rect height="100%" width="100%" fill="rgb(190, 190, 190)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">wrapped</text>
+</g></svg>
+<svg class="func_g" x="3.3732979443506554" y="408" width="964.0554925426135" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands_jsii/__init__.py:5632:invoke 0.00% (1 1 1.2041e-05 16.871761833)</title>
+    <rect height="100%" width="100%" fill="rgb(218, 218, 218)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">invoke</text>
+</g></svg>
+<svg class="func_g" x="3.3732979443506554" y="432" width="964.0554925426135" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands_jsii/__init__.py:7963:__call__ 0.00% (1 1 1.3499e-05 16.871900291)</title>
+    <rect height="100%" width="100%" fill="rgb(211, 211, 211)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">__call__</text>
+</g></svg>
+<svg class="func_g" x="968.4287904869642" y="336" width="230.54772141374113" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:400:sync_complete 0.00% (50 50 0.000570325 3.2610394570000003)</title>
+    <rect height="100%" width="100%" fill="rgb(204, 204, 204)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">sync_complete</text>
+</g></svg>
+<svg class="func_g" x="968.4287904869642" y="360" width="230.54772141374113" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:438:sync_complete 0.00% (50 50 0.000149251 3.261237625)</title>
+    <rect height="100%" width="100%" fill="rgb(204, 204, 204)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">sync_complete</text>
+</g></svg>
+<svg class="func_g" x="968.4287904869642" y="384" width="230.54772141374113" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:256:_callback_till_result 0.00% (50 50 0.000133542 3.2617407910000003)</title>
+    <rect height="100%" width="100%" fill="rgb(225, 225, 225)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">_callback_till_result</text>
+</g></svg>
+<svg class="func_g" x="968.4287904869642" y="408" width="230.54772141374113" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:394:invoke 0.00% (1 1 0.000200299 3.2801255830000002)</title>
+    <rect height="100%" width="100%" fill="rgb(225, 225, 225)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">invoke</text>
+</g></svg>
+<svg class="func_g" x="968.4287904869642" y="432" width="230.54772141374113" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:147:wrapped 0.00% (1 1 1.7585000000000002e-05 16.8716785)</title>
+    <rect height="100%" width="100%" fill="rgb(190, 190, 190)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">wrapped</text>
+</g></svg>
+<svg class="func_g" x="968.4287904869642" y="456" width="230.54772141374113" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands_jsii/__init__.py:5632:invoke 0.00% (1 1 1.2041e-05 16.871761833)</title>
+    <rect height="100%" width="100%" fill="rgb(218, 218, 218)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">invoke</text>
+</g></svg>
+<svg class="func_g" x="968.4287904869642" y="480" width="230.54772141374113" height="23"><g>
+    <title>/Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands_jsii/__init__.py:7963:__call__ 0.00% (1 1 1.3499e-05 16.871900291)</title>
+    <rect height="100%" width="100%" fill="rgb(211, 211, 211)" rx="2" ry="2" />
+    <text alignment-baseline="central" x="4.0" y="12.0" font-size="12px" fill="rgb(0,0,0)">__call__</text>
+</g></svg>
+</svg>

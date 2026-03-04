@@ -1,0 +1,45 @@
+{
+  "native": {
+    "sdk": "strands-agents",
+    "prompt": "say hello 50 times.",
+    "python_version": "3.13.12 (main, Feb  3 2026, 17:53:27) [Clang 17.0.0 (clang-1700.6.3.2)]",
+    "timestamp": "2026-03-04T05:46:25",
+    "import_time_s": 0.5033421670086682,
+    "construct_time_s": 0.10557879201951437,
+    "invoke_time_s": 13.35034525001538,
+    "memory_peak_mb": 1.3458576202392578,
+    "memory_current_mb": 1.037278175354004,
+    "memory_delta_mb": 1.037278175354004,
+    "max_rss_mb": 85.109375,
+    "user_cpu_time_s": 0.615191,
+    "system_cpu_time_s": 0.056183999999999984,
+    "result_length": 145
+  },
+  "jsii": {
+    "sdk": "strands-jsii",
+    "prompt": "say hello 50 times.",
+    "python_version": "3.13.12 (main, Feb  3 2026, 17:53:27) [Clang 17.0.0 (clang-1700.6.3.2)]",
+    "timestamp": "2026-03-04T05:47:16",
+    "import_time_s": 0.359458209015429,
+    "construct_time_s": 0.004620040999725461,
+    "invoke_time_s": 15.395642749994295,
+    "memory_peak_mb": 0.343994140625,
+    "memory_current_mb": 0.2647590637207031,
+    "memory_delta_mb": 0.2647590637207031,
+    "max_rss_mb": 38.984375,
+    "user_cpu_time_s": 0.04589900000000001,
+    "system_cpu_time_s": 0.0011819999999999956,
+    "result_length": 50
+  },
+  "ratios": {
+    "import_time_s": 0.7141428486940946,
+    "construct_time_s": 0.04375917654817957,
+    "invoke_time_s": 1.153201843223984,
+    "memory_peak_mb": 0.2555947489927255,
+    "memory_delta_mb": 0.2552440319399815,
+    "max_rss_mb": 0.458050302919038,
+    "user_cpu_time_s": 0.07460934896641858,
+    "system_cpu_time_s": 0.02103801794105076,
+    "result_length": 0.3448275862068966
+  }
+}

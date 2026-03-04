@@ -1,7 +1,4 @@
-import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { Worker } from 'worker_threads';
 import { ModelProvider } from './provider';
 import { buildOllamaRequest, parseOllamaResponse } from '../providers/formats';
 
@@ -35,25 +32,15 @@ export interface OllamaModelConfigOptions {
  * Resolved configuration for the Ollama model provider.
  */
 export class OllamaModelConfig {
-  /** Ollama model name. */
   public readonly modelId: string;
-  /** Ollama server URL. */
   public readonly host: string;
-  /** Maximum tokens to generate (num_predict). */
   public readonly maxTokens: number;
-  /** Sampling temperature. */
   public readonly temperature: number;
-  /** Top-P for nucleus sampling. */
   public readonly topP: number;
-  /** Top-K sampling. */
   public readonly topK: number;
-  /** How long to keep model loaded in memory. */
   public readonly keepAlive: string;
-  /** Optional stop sequences as JSON array string. */
   public readonly stopSequencesJson: string;
-  /** Additional Ollama-specific options as JSON string. */
   public readonly optionsJson: string;
-  /** Extra request body fields as JSON string. */
   public readonly additionalArgsJson: string;
 
   public constructor(options?: OllamaModelConfigOptions) {
@@ -72,17 +59,9 @@ export class OllamaModelConfig {
 
 /**
  * Ollama model provider for local inference.
- *
- * @example
- *
- * Python:
- *   model = Ollama(model_id="llama3")
- *
- * TypeScript:
- *   const model = new OllamaModelProvider(new OllamaModelConfig({ modelId: "llama3" }));
+ * Uses worker_threads + Atomics.wait — no fork, no temp files, no curl.
  */
 export class OllamaModelProvider extends ModelProvider {
-  /** The model configuration. */
   public readonly config: OllamaModelConfig;
 
   public constructor(config?: OllamaModelConfig) {
@@ -98,18 +77,78 @@ export class OllamaModelProvider extends ModelProvider {
       optionsJson: this.config.optionsJson || undefined, additionalArgsJson: this.config.additionalArgsJson || undefined,
     }, JSON.parse(messagesJson), systemPrompt, toolSpecsJson);
 
-    const bodyFile = join(tmpdir(), `strands-jsii-ollama-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
-    writeFileSync(bodyFile, JSON.stringify(req.body));
+    const rawResponse = this._httpWorker(req.url, { 'content-type': 'application/json' }, req.body);
+
     try {
-      const result = execSync(`curl -s -X POST "${req.url}" -H "content-type: application/json" -d @"${bodyFile}"`, { encoding: 'utf-8', timeout: 300000, maxBuffer: 10 * 1024 * 1024 });
-      return parseOllamaResponse(JSON.parse(result.trim()));
-    } catch (error: unknown) {
-      const err = error as { stdout?: string; message?: string };
-      if (err.stdout) { try { const r = JSON.parse(err.stdout.trim()); if (r.error) return JSON.stringify({ error: r.error }); } catch {} }
-      const msg = (error as any).message ?? '';
-      if (msg.includes('Connection refused') || msg.includes('ECONNREFUSED')) return JSON.stringify({ error: `Ollama server not reachable at ${this.config.host}. Try: ollama serve` });
-      return JSON.stringify({ error: msg || 'Ollama API error' });
-    } finally { try { unlinkSync(bodyFile); } catch {} }
+      const parsed = JSON.parse(rawResponse);
+      if (parsed.error) return JSON.stringify({ error: parsed.error });
+      return parseOllamaResponse(parsed);
+    } catch {
+      const msg = rawResponse || 'Ollama API error';
+      if (msg.includes('ECONNREFUSED'))
+        return JSON.stringify({ error: `Ollama server not reachable at ${this.config.host}. Try: ollama serve` });
+      return JSON.stringify({ error: msg });
+    }
+  }
+
+  private _httpWorker(url: string, headers: Record<string, string>, body: unknown): string {
+    const DATA_SIZE = 10 * 1024 * 1024;
+    const signalBuf = new SharedArrayBuffer(4);
+    const signal = new Int32Array(signalBuf);
+    const dataBuf = new SharedArrayBuffer(DATA_SIZE);
+    const dataView = new Uint8Array(dataBuf);
+    const lenBuf = new SharedArrayBuffer(4);
+    const lenView = new Int32Array(lenBuf);
+
+    const workerCode = `
+      const { workerData } = require('worker_threads');
+      const signal = new Int32Array(workerData.signal);
+      const dataView = new Uint8Array(workerData.data);
+      const lenView = new Int32Array(workerData.len);
+
+      function done(s) {
+        const enc = new TextEncoder().encode(s);
+        if (enc.length > dataView.length) {
+          const t = new TextEncoder().encode(JSON.stringify({ error: 'Response too large' }));
+          dataView.set(t); Atomics.store(lenView, 0, t.length);
+        } else {
+          dataView.set(enc); Atomics.store(lenView, 0, enc.length);
+        }
+        Atomics.store(signal, 0, 1); Atomics.notify(signal, 0);
+      }
+
+      const https = require('https');
+      const http = require('http');
+      const url = new URL(workerData.url);
+      const mod = url.protocol === 'https:' ? https : http;
+      const postData = JSON.stringify(workerData.body);
+      const opts = {
+        hostname: url.hostname, port: url.port, path: url.pathname + url.search,
+        method: 'POST', headers: { ...workerData.headers, 'content-length': Buffer.byteLength(postData) },
+      };
+      const req = mod.request(opts, (res) => {
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => done(Buffer.concat(chunks).toString()));
+      });
+      req.on('error', e => done(JSON.stringify({ error: e.message })));
+      req.setTimeout(300000, () => { req.destroy(); done(JSON.stringify({ error: 'Request timeout' })); });
+      req.write(postData);
+      req.end();
+    `;
+
+    const worker = new Worker(workerCode, {
+      eval: true,
+      workerData: { signal: signalBuf, data: dataBuf, len: lenBuf, url, headers, body },
+    });
+
+    Atomics.wait(signal, 0, 0, 300000);
+    const len = Atomics.load(lenView, 0);
+    const result = new TextDecoder().decode(dataView.slice(0, len));
+    worker.terminate();
+
+    if (len === 0) return JSON.stringify({ error: 'Request timed out (300s)' });
+    return result;
   }
 
   public get modelId(): string { return this.config.modelId; }

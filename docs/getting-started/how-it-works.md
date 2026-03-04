@@ -119,4 +119,8 @@ Under `src/providers/formats.ts`, there's a shared format layer that all provide
 - **Response parsing** — Converting each provider's response back to Bedrock Converse format
 - **SSE parsing** — Converting streaming chunks for browser-side providers
 
-This design means the Node.js providers (`src/models/`) and the browser providers (`src/web/`) share the same format logic — zero duplication. Only the transport layer differs (Node.js uses `execSync`+`curl`, browser uses `fetch`).
+This design means the Node.js providers (`src/models/`) and the browser providers (`src/web/`) share the same format logic — zero duplication. Only the transport layer differs (Node.js uses Worker Threads + AWS SDK, browser uses `fetch`).
+
+## Performance Characteristics
+
+The jsii bridge adds a fixed ~80 MB memory overhead for two Node.js processes, but in return Python CPU usage drops by 10× (all computation happens in V8) and agent construction is 25× faster. See [full benchmarks](../benchmarks.md) for the honest numbers.

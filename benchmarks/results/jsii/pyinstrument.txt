@@ -1,0 +1,14 @@
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 05:47:16  Samples:  245
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 15.781    CPU time: 0.153
+/   _/                      v5.1.2
+
+Program: /Users/cagatay/strands-jsii/benchmarks/bench_jsii.py
+
+15.780 <module>  bench_jsii.py:1
+└─ 15.770 run_benchmark  bench_jsii.py:39
+   ├─ 15.396 Agent.__call__  strands_jsii/__init__.py:7963
+   │     [12 frames hidden]  strands_jsii, jsii, <built-in>
+   │        13.414 BufferedReader.readline  <built-in>
+   └─ 0.358 <module>  strands_jsii/__init__.py:1
+

@@ -1,0 +1,21 @@
+========================================================================
+  BENCHMARK COMPARISON: strands-agents vs strands-jsii
+========================================================================
+  Prompt: say hello 50 times.
+  Python: 3.13.12
+  Date:   2026-03-04T05:46:25
+
+  Metric                          Native         JSII            Δ    Ratio
+  ───────────────────────── ──────────── ──────────── ──────────── ────────
+  Import Time                   0.5033 s     0.3595 s      -0.1439    0.71x
+  Agent Construction            0.1056 s     0.0046 s      -0.1010    0.04x
+  Invoke Time                  13.3503 s    15.3956 s      +2.0453    1.15x
+  Memory Peak                   1.3459MB     0.3440MB      -1.0019    0.26x
+  Memory Delta                  1.0373MB     0.2648MB      -0.7725    0.26x
+  Max RSS                      85.1094MB    38.9844MB     -46.1250    0.46x
+  User CPU Time                 0.6152 s     0.0459 s      -0.5693    0.07x
+  System CPU Time               0.0562 s     0.0012 s      -0.0550    0.02x
+  Result Length               145.0000ch    50.0000ch     -95.0000    0.34x
+
+  Legend: Ratio = JSII/Native (>1 = JSII slower, <1 = JSII faster)
+========================================================================

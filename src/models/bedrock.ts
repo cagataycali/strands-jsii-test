@@ -2,6 +2,7 @@ import { execSync } from 'child_process';
 import { writeFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { Worker } from 'worker_threads';
 import { ModelProvider } from './provider';
 import { GuardrailConfig } from '../safety/guardrails';
 
@@ -142,7 +143,7 @@ export class BedrockModelProvider extends ModelProvider {
       request.additionalModelRequestFields = JSON.parse(this.config.additionalRequestFieldsJson);
     }
 
-    return this._execSync(request);
+    return this._converseWorker(request);
   }
 
   /** @inheritdoc */
@@ -155,7 +156,164 @@ export class BedrockModelProvider extends ModelProvider {
     return 'bedrock';
   }
 
-  private _execSync(request: Record<string, unknown>): string {
+  /**
+   * Execute a Bedrock request using worker_threads + Atomics.wait.
+   *
+   * Architecture:
+   *   Main thread (JSII runtime) — blocked synchronously via Atomics.wait
+   *   Worker thread — runs async AWS SDK call, writes result to SharedArrayBuffer
+   *
+   * Eliminates: child process spawn, temp file writes/reads, unlinkSync cleanup
+   * Result: ~0 disk I/O, ~0 fork overhead, same-process AWS SDK client
+   */
+  private _converseWorker(request: Record<string, unknown>): string {
+    const sdkDir = require.resolve('@aws-sdk/client-bedrock-runtime').replace(/\\/g, '/');
+
+    // Shared memory for synchronization
+    const DATA_SIZE = 10 * 1024 * 1024; // 10MB max response
+    const signalBuf = new SharedArrayBuffer(4);
+    const signal = new Int32Array(signalBuf);
+    const dataBuf = new SharedArrayBuffer(DATA_SIZE);
+    const dataView = new Uint8Array(dataBuf);
+    const lenBuf = new SharedArrayBuffer(4);
+    const lenView = new Int32Array(lenBuf);
+
+    const streaming = this.config.streaming;
+
+    // Worker code — runs async, writes result to SharedArrayBuffer, notifies main thread
+    const workerCode = `
+      const { workerData } = require('worker_threads');
+      const signal = new Int32Array(workerData.signal);
+      const dataView = new Uint8Array(workerData.data);
+      const lenView = new Int32Array(workerData.len);
+
+      function done(resultStr) {
+        const encoded = new TextEncoder().encode(resultStr);
+        if (encoded.length > dataView.length) {
+          const truncated = JSON.stringify({ error: 'Response too large: ' + encoded.length + ' bytes' });
+          const enc2 = new TextEncoder().encode(truncated);
+          dataView.set(enc2);
+          Atomics.store(lenView, 0, enc2.length);
+        } else {
+          dataView.set(encoded);
+          Atomics.store(lenView, 0, encoded.length);
+        }
+        Atomics.store(signal, 0, 1);
+        Atomics.notify(signal, 0);
+      }
+
+      async function run() {
+        const sdk = require(workerData.sdkDir);
+        const cfg = { region: workerData.region, customUserAgent: 'strands-agents-jsii' };
+        if (process.env.AWS_BEARER_TOKEN_BEDROCK) {
+          cfg.token = { token: process.env.AWS_BEARER_TOKEN_BEDROCK };
+        }
+        const client = new sdk.BedrockRuntimeClient(cfg);
+
+        if (workerData.streaming) {
+          // ConverseStream — collect chunks, assemble content blocks
+          const response = await client.send(new sdk.ConverseStreamCommand(workerData.request));
+          const blocks = [];
+          let idx = -1, role = 'assistant', stop = 'end_turn', usage = {}, hasTU = false;
+
+          for await (const chunk of response.stream) {
+            if (chunk.messageStart) role = chunk.messageStart.role || 'assistant';
+            if (chunk.contentBlockStart) {
+              idx = chunk.contentBlockStart.contentBlockIndex ?? ++idx;
+              const s = chunk.contentBlockStart.start || {};
+              if (s.toolUse) {
+                hasTU = true;
+                blocks[idx] = { toolUse: { toolUseId: s.toolUse.toolUseId, name: s.toolUse.name, input: '' } };
+              } else {
+                blocks[idx] = { text: '' };
+              }
+            }
+            if (chunk.contentBlockDelta) {
+              const d = chunk.contentBlockDelta.delta || {};
+              const i = chunk.contentBlockDelta.contentBlockIndex ?? idx;
+              if (!blocks[i]) blocks[i] = { text: '' };
+              const block = blocks[i];
+              if (d.text !== undefined) {
+                if (block.text !== undefined) block.text += d.text;
+                else block.text = d.text;
+              }
+              if (d.toolUse && block.toolUse) block.toolUse.input += d.toolUse.input || '';
+              if (d.reasoningContent) {
+                if (!block.reasoningContent) {
+                  block.reasoningContent = { reasoningText: { text: '', signature: '' } };
+                  delete block.text;
+                }
+                if (d.reasoningContent.text) block.reasoningContent.reasoningText.text += d.reasoningContent.text;
+                if (d.reasoningContent.signature) block.reasoningContent.reasoningText.signature += d.reasoningContent.signature;
+              }
+            }
+            if (chunk.contentBlockStop) {
+              const i = chunk.contentBlockStop.contentBlockIndex ?? idx;
+              const b = blocks[i];
+              if (b && b.toolUse && typeof b.toolUse.input === 'string') {
+                try { b.toolUse.input = JSON.parse(b.toolUse.input); } catch { b.toolUse.input = {}; }
+              }
+            }
+            if (chunk.messageStop) {
+              stop = chunk.messageStop.stopReason || 'end_turn';
+              if (hasTU && stop === 'end_turn') stop = 'tool_use';
+            }
+            if (chunk.metadata && chunk.metadata.usage) usage = chunk.metadata.usage;
+          }
+
+          done(JSON.stringify({
+            output: { message: { role, content: blocks.filter(Boolean) } },
+            stopReason: stop,
+            usage: { inputTokens: usage.inputTokens || 0, outputTokens: usage.outputTokens || 0 },
+          }));
+        } else {
+          // Non-streaming: ConverseCommand
+          const r = await client.send(new sdk.ConverseCommand(workerData.request));
+          let stop = r.stopReason || 'end_turn';
+          const content = r.output?.message?.content || [];
+          if (stop === 'end_turn' && content.some(b => b.toolUse)) stop = 'tool_use';
+          done(JSON.stringify({ output: r.output, stopReason: stop, usage: r.usage }));
+        }
+      }
+
+      run().catch(e => done(JSON.stringify({ error: e.message })));
+    `;
+
+    const worker = new Worker(workerCode, {
+      eval: true,
+      workerData: {
+        signal: signalBuf,
+        data: dataBuf,
+        len: lenBuf,
+        sdkDir,
+        region: this.config.region,
+        streaming,
+        request,
+      },
+    });
+
+    // Block synchronously until worker completes
+    const waitResult = Atomics.wait(signal, 0, 0, 120000); // 120s timeout
+
+    const len = Atomics.load(lenView, 0);
+    const result = new TextDecoder().decode(dataView.slice(0, len));
+
+    // Clean up worker
+    worker.terminate();
+
+    if (waitResult === 'timed-out' || len === 0) {
+      return JSON.stringify({ error: 'Bedrock request timed out (120s)' });
+    }
+
+    return result;
+  }
+
+  /**
+   * Fallback: execSync-based execution (kept for environments where worker_threads is unavailable).
+   * @internal
+   */
+  // @ts-ignore: kept as fallback
+  private _execSyncFallback(request: Record<string, unknown>): string {
     const reqFile = join(tmpdir(), `strands-jsii-req-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
     const scriptFile = join(tmpdir(), `strands-jsii-run-${Date.now()}-${Math.random().toString(36).slice(2)}.js`);
 
@@ -164,129 +322,9 @@ export class BedrockModelProvider extends ModelProvider {
     const sdkPath = require.resolve('@aws-sdk/client-bedrock-runtime').replace(/\\/g, '/');
     const sdkDir = sdkPath.substring(0, sdkPath.lastIndexOf('/node_modules/') + '/node_modules/'.length) + '@aws-sdk/client-bedrock-runtime';
 
-    let script: string;
-
-    if (this.config.streaming) {
-      // Use ConverseStreamCommand — matches Python SDK's converse_stream behavior.
-      // Collects streaming chunks, assembles content blocks, fixes stopReason for tool_use,
-      // and returns the same { output, stopReason, usage } shape as non-streaming.
-      script = [
-        "const fs = require('fs');",
-        `const { BedrockRuntimeClient, ConverseStreamCommand } = require('${sdkDir.replace(/'/g, "\\'")}');`,
-        `const request = JSON.parse(fs.readFileSync('${reqFile.replace(/'/g, "\\'")}', 'utf-8'));`,
-        // Bearer token support: if AWS_BEARER_TOKEN_BEDROCK is set, use it as token identity
-        'const clientConfig = { region: ' + JSON.stringify(this.config.region) + ", customUserAgent: 'strands-agents-jsii' };",
-        'if (process.env.AWS_BEARER_TOKEN_BEDROCK) {',
-        '  clientConfig.token = { token: process.env.AWS_BEARER_TOKEN_BEDROCK };',
-        '}',
-        'const client = new BedrockRuntimeClient(clientConfig);',
-        '',
-        'async function run() {',
-        '  const response = await client.send(new ConverseStreamCommand(request));',
-        '  const contentBlocks = [];',
-        '  let currentBlockIdx = -1;',
-        '  let role = "assistant";',
-        '  let stopReason = "end_turn";',
-        '  let usage = {};',
-        '  let hasToolUse = false;',
-        '',
-        '  for await (const chunk of response.stream) {',
-        '    if (chunk.messageStart) {',
-        '      role = chunk.messageStart.role || "assistant";',
-        '    }',
-        '    if (chunk.contentBlockStart) {',
-        '      currentBlockIdx = chunk.contentBlockStart.contentBlockIndex ?? (currentBlockIdx + 1);',
-        '      const start = chunk.contentBlockStart.start || {};',
-        '      if (start.toolUse) {',
-        '        hasToolUse = true;',
-        '        contentBlocks[currentBlockIdx] = { toolUse: { toolUseId: start.toolUse.toolUseId, name: start.toolUse.name, input: "" } };',
-        '      } else {',
-        '        contentBlocks[currentBlockIdx] = { text: "" };',
-        '      }',
-        '    }',
-        '    if (chunk.contentBlockDelta) {',
-        '      const delta = chunk.contentBlockDelta.delta || {};',
-        '      const idx = chunk.contentBlockDelta.contentBlockIndex ?? currentBlockIdx;',
-        // Ensure block exists — contentBlockDelta can arrive without contentBlockStart for text blocks
-        '      if (!contentBlocks[idx]) {',
-        '        currentBlockIdx = idx;',
-        '        contentBlocks[idx] = { text: "" };',
-        '      }',
-        '      const block = contentBlocks[idx];',
-        '      if (delta.text !== undefined) {',
-        '        if (block.text !== undefined) block.text += delta.text;',
-        '        else block.text = delta.text;',
-        '      }',
-        '      if (delta.toolUse && block.toolUse) {',
-        '        block.toolUse.input += delta.toolUse.input || "";',
-        '      }',
-        '      if (delta.reasoningContent) {',
-        '        if (!block.reasoningContent) {',
-        '          block.reasoningContent = { reasoningText: { text: "", signature: "" } };',
-        '          delete block.text;',
-        '        }',
-        '        if (delta.reasoningContent.text) block.reasoningContent.reasoningText.text += delta.reasoningContent.text;',
-        '        if (delta.reasoningContent.signature) block.reasoningContent.reasoningText.signature += delta.reasoningContent.signature;',
-        '      }',
-        '    }',
-        '    if (chunk.contentBlockStop) {',
-        '      const idx = chunk.contentBlockStop.contentBlockIndex ?? currentBlockIdx;',
-        '      const block = contentBlocks[idx];',
-        '      if (block && block.toolUse && typeof block.toolUse.input === "string") {',
-        '        try { block.toolUse.input = JSON.parse(block.toolUse.input); }',
-        '        catch { block.toolUse.input = {}; }',
-        '      }',
-        '    }',
-        '    if (chunk.messageStop) {',
-        '      stopReason = chunk.messageStop.stopReason || "end_turn";',
-        // Fix stopReason: if we saw tool_use blocks but stopReason is end_turn,
-        // override to tool_use — matches Python SDK behavior exactly.
-        '      if (hasToolUse && stopReason === "end_turn") stopReason = "tool_use";',
-        '    }',
-        '    if (chunk.metadata) {',
-        '      if (chunk.metadata.usage) usage = chunk.metadata.usage;',
-        '    }',
-        '  }',
-        '',
-        '  const result = {',
-        '    output: { message: { role, content: contentBlocks.filter(Boolean) } },',
-        '    stopReason,',
-        '    usage: { inputTokens: usage.inputTokens || 0, outputTokens: usage.outputTokens || 0 },',
-        '  };',
-        '  process.stdout.write(JSON.stringify(result));',
-        '}',
-        '',
-        'run().catch(e => {',
-        '  process.stdout.write(JSON.stringify({ error: e.message }));',
-        '  process.exit(1);',
-        '});',
-      ].join('\n');
-    } else {
-      // Non-streaming: use ConverseCommand (original behavior).
-      // Also applies the stopReason fix for tool_use consistency.
-      script = [
-        "const fs = require('fs');",
-        `const { BedrockRuntimeClient, ConverseCommand } = require('${sdkDir.replace(/'/g, "\\'")}');`,
-        `const request = JSON.parse(fs.readFileSync('${reqFile.replace(/'/g, "\\'")}', 'utf-8'));`,
-        // Bearer token support for non-streaming path
-        'const clientConfig = { region: ' + JSON.stringify(this.config.region) + ", customUserAgent: 'strands-agents-jsii' };",
-        'if (process.env.AWS_BEARER_TOKEN_BEDROCK) {',
-        '  clientConfig.token = { token: process.env.AWS_BEARER_TOKEN_BEDROCK };',
-        '}',
-        'const client = new BedrockRuntimeClient(clientConfig);',
-        'client.send(new ConverseCommand(request)).then(r => {',
-        '  let stopReason = r.stopReason || "end_turn";',
-        '  const content = r.output?.message?.content || [];',
-        '  if (stopReason === "end_turn" && content.some(b => b.toolUse)) {',
-        '    stopReason = "tool_use";',
-        '  }',
-        '  process.stdout.write(JSON.stringify({ output: r.output, stopReason, usage: r.usage }));',
-        '}).catch(e => {',
-        '  process.stdout.write(JSON.stringify({ error: e.message }));',
-        '  process.exit(1);',
-        '});',
-      ].join('\n');
-    }
+    const script = this.config.streaming
+      ? this._buildStreamingScript(sdkDir, reqFile)
+      : this._buildNonStreamingScript(sdkDir, reqFile);
 
     writeFileSync(scriptFile, script);
 
@@ -308,6 +346,46 @@ export class BedrockModelProvider extends ModelProvider {
       try { unlinkSync(reqFile); } catch { /* ignore */ }
       try { unlinkSync(scriptFile); } catch { /* ignore */ }
     }
+  }
+
+  private _buildStreamingScript(sdkDir: string, reqFile: string): string {
+    return [
+      "const fs = require('fs');",
+      `const { BedrockRuntimeClient, ConverseStreamCommand } = require('${sdkDir.replace(/'/g, "\\'")}');`,
+      `const request = JSON.parse(fs.readFileSync('${reqFile.replace(/'/g, "\\'")}', 'utf-8'));`,
+      'const clientConfig = { region: ' + JSON.stringify(this.config.region) + ", customUserAgent: 'strands-agents-jsii' };",
+      'if (process.env.AWS_BEARER_TOKEN_BEDROCK) clientConfig.token = { token: process.env.AWS_BEARER_TOKEN_BEDROCK };',
+      'const client = new BedrockRuntimeClient(clientConfig);',
+      'async function run() {',
+      '  const response = await client.send(new ConverseStreamCommand(request));',
+      '  const blocks = []; let idx = -1, role = "assistant", stop = "end_turn", usage = {}, hasTU = false;',
+      '  for await (const chunk of response.stream) {',
+      '    if (chunk.contentBlockStart) { idx = chunk.contentBlockStart.contentBlockIndex ?? ++idx; const s = chunk.contentBlockStart.start || {}; if (s.toolUse) { hasTU = true; blocks[idx] = { toolUse: { toolUseId: s.toolUse.toolUseId, name: s.toolUse.name, input: "" } }; } else { blocks[idx] = { text: "" }; } }',
+      '    if (chunk.contentBlockDelta) { const d = chunk.contentBlockDelta.delta || {}, i = chunk.contentBlockDelta.contentBlockIndex ?? idx; if (!blocks[i]) blocks[i] = { text: "" }; if (d.text !== undefined) blocks[i].text = (blocks[i].text || "") + d.text; if (d.toolUse && blocks[i].toolUse) blocks[i].toolUse.input += d.toolUse.input || ""; if (d.reasoningContent) { if (!blocks[i].reasoningContent) { blocks[i].reasoningContent = { reasoningText: { text: "", signature: "" } }; delete blocks[i].text; } if (d.reasoningContent.text) blocks[i].reasoningContent.reasoningText.text += d.reasoningContent.text; if (d.reasoningContent.signature) blocks[i].reasoningContent.reasoningText.signature += d.reasoningContent.signature; } }',
+      '    if (chunk.contentBlockStop) { const i = chunk.contentBlockStop.contentBlockIndex ?? idx, b = blocks[i]; if (b && b.toolUse && typeof b.toolUse.input === "string") try { b.toolUse.input = JSON.parse(b.toolUse.input); } catch { b.toolUse.input = {}; } }',
+      '    if (chunk.messageStop) { stop = chunk.messageStop.stopReason || "end_turn"; if (hasTU && stop === "end_turn") stop = "tool_use"; }',
+      '    if (chunk.metadata && chunk.metadata.usage) usage = chunk.metadata.usage;',
+      '  }',
+      '  process.stdout.write(JSON.stringify({ output: { message: { role, content: blocks.filter(Boolean) } }, stopReason: stop, usage: { inputTokens: usage.inputTokens || 0, outputTokens: usage.outputTokens || 0 } }));',
+      '}',
+      'run().catch(e => { process.stdout.write(JSON.stringify({ error: e.message })); process.exit(1); });',
+    ].join('\n');
+  }
+
+  private _buildNonStreamingScript(sdkDir: string, reqFile: string): string {
+    return [
+      "const fs = require('fs');",
+      `const { BedrockRuntimeClient, ConverseCommand } = require('${sdkDir.replace(/'/g, "\\'")}');`,
+      `const request = JSON.parse(fs.readFileSync('${reqFile.replace(/'/g, "\\'")}', 'utf-8'));`,
+      'const clientConfig = { region: ' + JSON.stringify(this.config.region) + ", customUserAgent: 'strands-agents-jsii' };",
+      'if (process.env.AWS_BEARER_TOKEN_BEDROCK) clientConfig.token = { token: process.env.AWS_BEARER_TOKEN_BEDROCK };',
+      'const client = new BedrockRuntimeClient(clientConfig);',
+      'client.send(new ConverseCommand(request)).then(r => {',
+      '  let stop = r.stopReason || "end_turn"; const content = r.output?.message?.content || [];',
+      '  if (stop === "end_turn" && content.some(b => b.toolUse)) stop = "tool_use";',
+      '  process.stdout.write(JSON.stringify({ output: r.output, stopReason: stop, usage: r.usage }));',
+      '}).catch(e => { process.stdout.write(JSON.stringify({ error: e.message })); process.exit(1); });',
+    ].join('\n');
   }
 }
 

@@ -1,0 +1,1 @@
+<strands_jsii.AgentResponse object at 0x103bbb770>

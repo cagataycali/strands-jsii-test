@@ -1,0 +1,38 @@
+         182392 function calls (171385 primitive calls) in 15.215 seconds
+
+   Ordered by: internal time
+   List reduced from 1328 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      303   14.354    0.047   14.354    0.047 {method 'read' of '_ssl._SSLSocket' objects}
+        1    0.079    0.079    0.079    0.079 {built-in method _socket.getaddrinfo}
+        1    0.077    0.077    0.077    0.077 {method 'do_handshake' of '_ssl._SSLSocket' objects}
+        1    0.071    0.071    0.071    0.071 {method 'connect' of '_socket.socket' objects}
+    18830    0.038    0.000    0.038    0.000 {method 'get' of 'dict' objects}
+  900/347    0.029    0.000    0.086    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/botocore/parsers.py:686(_handle_structure)
+      460    0.028    0.000   30.611    0.067 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py:1970(_run_once)
+      900    0.021    0.000    0.030    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/botocore/parsers.py:374(_has_unknown_tagged_union_member)
+      879    0.020    0.000    0.135    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands/agent/agent.py:654(stream_async)
+      462    0.013    0.000   15.223    0.033 {method 'control' of 'select.kqueue' objects}
+        1    0.012    0.012    0.012    0.012 {method 'load_verify_locations' of '_ssl._SSLContext' objects}
+ 1023/928    0.012    0.000    0.081    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands/event_loop/event_loop.py:78(event_loop_cycle)
+      531    0.011    0.000    0.011    0.000 {method 'recv' of '_socket.socket' objects}
+      868    0.009    0.000    0.038    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands/event_loop/streaming.py:370(process_stream)
+  444/440    0.008    0.000    0.008    0.000 {method 'send' of '_socket.socket' objects}
+      929    0.008    0.000    0.100    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands/agent/agent.py:762(_run_loop)
+      596    0.008    0.000    0.015    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands/handlers/callback_handler.py:19(__call__)
+      167    0.008    0.000    0.008    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/encoder.py:207(iterencode)
+     1965    0.008    0.000    0.008    0.000 {method 'popleft' of 'collections.deque' objects}
+      460    0.008    0.000   28.494    0.062 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/selectors.py:540(select)
+ 2938/165    0.007    0.000    0.010    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands/telemetry/tracer.py:46(_process_value)
+  694/347    0.007    0.000    0.135    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/botocore/parsers.py:976(_do_parse)
+      347    0.007    0.000    0.121    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/botocore/parsers.py:1013(_parse_payload)
+     2834    0.007    0.000    0.007    0.000 {method 'decode' of 'bytes' objects}
+      397    0.007    0.000    0.007    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/decoder.py:351(raw_decode)
+ 1642/347    0.006    0.000    0.090    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/botocore/parsers.py:343(_parse_shape)
+      317    0.006    0.000   14.518    0.046 {method 'readline' of '_io.BufferedReader' objects}
+      347    0.006    0.000    0.150    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/botocore/eventstream.py:602(_parse_event)
+     2082    0.006    0.000    0.019    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/botocore/eventstream.py:232(unpack_utf8_string)
+      868    0.006    0.000    0.054    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands/event_loop/event_loop.py:275(_handle_model_execution)
+
+

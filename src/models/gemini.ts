@@ -1,7 +1,4 @@
-import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { Worker } from 'worker_threads';
 import { ModelProvider } from './provider';
 import { buildGeminiRequest, parseGeminiResponse } from '../providers/formats';
 
@@ -35,25 +32,15 @@ export interface GeminiModelConfigOptions {
  * Resolved configuration for the Gemini model provider.
  */
 export class GeminiModelConfig {
-  /** Gemini model name. */
   public readonly modelId: string;
-  /** Google API key. */
   public readonly apiKey: string;
-  /** Maximum tokens to generate. */
   public readonly maxTokens: number;
-  /** Sampling temperature. */
   public readonly temperature: number;
-  /** Top-P for nucleus sampling. */
   public readonly topP: number;
-  /** Top-K sampling. */
   public readonly topK: number;
-  /** Optional stop sequences as JSON array string. */
   public readonly stopSequencesJson: string;
-  /** Gemini-specific tools as JSON string. */
   public readonly geminiToolsJson: string;
-  /** Additional generation config as JSON string. */
   public readonly additionalParamsJson: string;
-  /** Token budget for Gemini thinking mode. */
   public readonly thinkingBudgetTokens: number;
 
   public constructor(options?: GeminiModelConfigOptions) {
@@ -72,17 +59,9 @@ export class GeminiModelConfig {
 
 /**
  * Google Gemini model provider.
- *
- * @example
- *
- * Python:
- *   model = Gemini(api_key="AIza...", model_id="gemini-2.5-flash")
- *
- * TypeScript:
- *   const model = new GeminiModelProvider(new GeminiModelConfig({ modelId: "gemini-2.5-flash" }));
+ * Uses worker_threads + Atomics.wait — no fork, no temp files, no curl.
  */
 export class GeminiModelProvider extends ModelProvider {
-  /** The model configuration. */
   public readonly config: GeminiModelConfig;
 
   public constructor(config?: GeminiModelConfig) {
@@ -98,16 +77,73 @@ export class GeminiModelProvider extends ModelProvider {
       additionalParamsJson: this.config.additionalParamsJson || undefined, thinkingBudgetTokens: this.config.thinkingBudgetTokens,
     }, JSON.parse(messagesJson), systemPrompt, toolSpecsJson);
 
-    const bodyFile = join(tmpdir(), `strands-jsii-gemini-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
-    writeFileSync(bodyFile, JSON.stringify(req.body));
+    const rawResponse = this._httpWorker(req.url, { 'content-type': 'application/json' }, req.body);
+
     try {
-      const result = execSync(`curl -s -X POST "${req.url}" -H "content-type: application/json" -d @"${bodyFile}"`, { encoding: 'utf-8', timeout: 300000, maxBuffer: 10 * 1024 * 1024 });
-      return parseGeminiResponse(JSON.parse(result.trim()));
-    } catch (error: unknown) {
-      const err = error as { stdout?: string; message?: string };
-      if (err.stdout) { try { return parseGeminiResponse(JSON.parse(err.stdout.trim())); } catch {} }
-      return JSON.stringify({ error: err.message ?? 'Gemini API error' });
-    } finally { try { unlinkSync(bodyFile); } catch {} }
+      return parseGeminiResponse(JSON.parse(rawResponse));
+    } catch {
+      return JSON.stringify({ error: rawResponse || 'Gemini API error' });
+    }
+  }
+
+  private _httpWorker(url: string, headers: Record<string, string>, body: unknown): string {
+    const DATA_SIZE = 10 * 1024 * 1024;
+    const signalBuf = new SharedArrayBuffer(4);
+    const signal = new Int32Array(signalBuf);
+    const dataBuf = new SharedArrayBuffer(DATA_SIZE);
+    const dataView = new Uint8Array(dataBuf);
+    const lenBuf = new SharedArrayBuffer(4);
+    const lenView = new Int32Array(lenBuf);
+
+    const workerCode = `
+      const { workerData } = require('worker_threads');
+      const signal = new Int32Array(workerData.signal);
+      const dataView = new Uint8Array(workerData.data);
+      const lenView = new Int32Array(workerData.len);
+
+      function done(s) {
+        const enc = new TextEncoder().encode(s);
+        if (enc.length > dataView.length) {
+          const t = new TextEncoder().encode(JSON.stringify({ error: 'Response too large' }));
+          dataView.set(t); Atomics.store(lenView, 0, t.length);
+        } else {
+          dataView.set(enc); Atomics.store(lenView, 0, enc.length);
+        }
+        Atomics.store(signal, 0, 1); Atomics.notify(signal, 0);
+      }
+
+      const https = require('https');
+      const http = require('http');
+      const url = new URL(workerData.url);
+      const mod = url.protocol === 'https:' ? https : http;
+      const postData = JSON.stringify(workerData.body);
+      const opts = {
+        hostname: url.hostname, port: url.port, path: url.pathname + url.search,
+        method: 'POST', headers: { ...workerData.headers, 'content-length': Buffer.byteLength(postData) },
+      };
+      const req = mod.request(opts, (res) => {
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => done(Buffer.concat(chunks).toString()));
+      });
+      req.on('error', e => done(JSON.stringify({ error: e.message })));
+      req.setTimeout(300000, () => { req.destroy(); done(JSON.stringify({ error: 'Request timeout' })); });
+      req.write(postData);
+      req.end();
+    `;
+
+    const worker = new Worker(workerCode, {
+      eval: true,
+      workerData: { signal: signalBuf, data: dataBuf, len: lenBuf, url, headers, body },
+    });
+
+    Atomics.wait(signal, 0, 0, 300000);
+    const len = Atomics.load(lenView, 0);
+    const result = new TextDecoder().decode(dataView.slice(0, len));
+    worker.terminate();
+
+    if (len === 0) return JSON.stringify({ error: 'Request timed out (300s)' });
+    return result;
   }
 
   public get modelId(): string { return this.config.modelId; }

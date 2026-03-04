@@ -1,7 +1,4 @@
-import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { Worker } from 'worker_threads';
 import { ModelProvider } from './provider';
 import { buildAnthropicRequest, parseAnthropicResponse } from '../providers/formats';
 
@@ -61,8 +58,7 @@ export class AnthropicModelConfig {
 
 /**
  * Anthropic Claude model provider (direct API).
- * Uses shared format definitions from src/providers/formats.ts.
- * Only the HTTP transport (execSync+curl) is Node.js specific.
+ * Uses worker_threads + Atomics.wait for zero-fork, zero-disk HTTP calls.
  */
 export class AnthropicModelProvider extends ModelProvider {
   public readonly config: AnthropicModelConfig;
@@ -73,7 +69,6 @@ export class AnthropicModelProvider extends ModelProvider {
   }
 
   public converse(messagesJson: string, systemPrompt?: string, toolSpecsJson?: string): string {
-    // Use shared format definitions — ZERO duplication
     const req = buildAnthropicRequest({
       modelId: this.config.modelId,
       apiKey: this.config.apiKey,
@@ -89,41 +84,89 @@ export class AnthropicModelProvider extends ModelProvider {
       additionalParamsJson: this.config.additionalParamsJson || undefined,
     }, JSON.parse(messagesJson), systemPrompt, toolSpecsJson);
 
-    // Transport: Node.js execSync+curl (the ONLY Node-specific part)
-    const bodyFile = join(tmpdir(), `strands-jsii-anthropic-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
-    writeFileSync(bodyFile, JSON.stringify(req.body));
+    const rawResponse = this._httpWorker(req.url, req.headers, req.body);
+
     try {
-      const headerFlags = Object.entries(req.headers).map(([k, v]) => `-H "${k}: ${v}"`).join(' ');
-      const result = execSync(
-        `curl -s -X POST "${req.url}" ${headerFlags} -d @"${bodyFile}"`,
-        { encoding: 'utf-8', timeout: 300000, maxBuffer: 10 * 1024 * 1024 },
-      );
-      // Use shared response parser
-      return parseAnthropicResponse(JSON.parse(result.trim()));
-    } catch (error: unknown) {
-      const err = error as { stdout?: string; message?: string };
-      if (err.stdout) {
-        try {
-          const errorResponse = JSON.parse(err.stdout.trim());
-          if (errorResponse.error) {
-            const msg = errorResponse.error.message ?? JSON.stringify(errorResponse.error);
-            const errorType = errorResponse.error.type ?? '';
-            if (errorType === 'rate_limit_error' || msg.toLowerCase().includes('rate limit'))
-              return JSON.stringify({ error: `Throttled: ${msg}` });
-            if (errorType === 'invalid_request_error') {
-              const lower = msg.toLowerCase();
-              if (lower.includes('too long') || lower.includes('context') || lower.includes('input length'))
-                return JSON.stringify({ error: `Context overflow: ${msg}` });
-            }
-            return JSON.stringify({ error: msg });
-          }
-          return parseAnthropicResponse(errorResponse);
-        } catch {}
+      const parsed = JSON.parse(rawResponse);
+      if (parsed.error) {
+        const msg = parsed.error.message ?? JSON.stringify(parsed.error);
+        const errorType = parsed.error.type ?? '';
+        if (errorType === 'rate_limit_error' || msg.toLowerCase().includes('rate limit'))
+          return JSON.stringify({ error: `Throttled: ${msg}` });
+        if (errorType === 'invalid_request_error') {
+          const lower = msg.toLowerCase();
+          if (lower.includes('too long') || lower.includes('context') || lower.includes('input length'))
+            return JSON.stringify({ error: `Context overflow: ${msg}` });
+        }
+        return JSON.stringify({ error: msg });
       }
-      return JSON.stringify({ error: err.message ?? 'Anthropic API error' });
-    } finally {
-      try { unlinkSync(bodyFile); } catch {}
+      return parseAnthropicResponse(parsed);
+    } catch {
+      return JSON.stringify({ error: rawResponse || 'Anthropic API error' });
     }
+  }
+
+  /**
+   * HTTP POST via worker_threads + Atomics.wait — no fork, no temp files, no curl.
+   */
+  private _httpWorker(url: string, headers: Record<string, string>, body: unknown): string {
+    const DATA_SIZE = 10 * 1024 * 1024;
+    const signalBuf = new SharedArrayBuffer(4);
+    const signal = new Int32Array(signalBuf);
+    const dataBuf = new SharedArrayBuffer(DATA_SIZE);
+    const dataView = new Uint8Array(dataBuf);
+    const lenBuf = new SharedArrayBuffer(4);
+    const lenView = new Int32Array(lenBuf);
+
+    const workerCode = `
+      const { workerData } = require('worker_threads');
+      const signal = new Int32Array(workerData.signal);
+      const dataView = new Uint8Array(workerData.data);
+      const lenView = new Int32Array(workerData.len);
+
+      function done(s) {
+        const enc = new TextEncoder().encode(s);
+        if (enc.length > dataView.length) {
+          const t = new TextEncoder().encode(JSON.stringify({ error: 'Response too large' }));
+          dataView.set(t); Atomics.store(lenView, 0, t.length);
+        } else {
+          dataView.set(enc); Atomics.store(lenView, 0, enc.length);
+        }
+        Atomics.store(signal, 0, 1); Atomics.notify(signal, 0);
+      }
+
+      const https = require('https');
+      const http = require('http');
+      const url = new URL(workerData.url);
+      const mod = url.protocol === 'https:' ? https : http;
+      const postData = JSON.stringify(workerData.body);
+      const opts = {
+        hostname: url.hostname, port: url.port, path: url.pathname + url.search,
+        method: 'POST', headers: { ...workerData.headers, 'content-length': Buffer.byteLength(postData) },
+      };
+      const req = mod.request(opts, (res) => {
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => done(Buffer.concat(chunks).toString()));
+      });
+      req.on('error', e => done(JSON.stringify({ error: e.message })));
+      req.setTimeout(300000, () => { req.destroy(); done(JSON.stringify({ error: 'Request timeout' })); });
+      req.write(postData);
+      req.end();
+    `;
+
+    const worker = new Worker(workerCode, {
+      eval: true,
+      workerData: { signal: signalBuf, data: dataBuf, len: lenBuf, url, headers, body },
+    });
+
+    Atomics.wait(signal, 0, 0, 300000);
+    const len = Atomics.load(lenView, 0);
+    const result = new TextDecoder().decode(dataView.slice(0, len));
+    worker.terminate();
+
+    if (len === 0) return JSON.stringify({ error: 'Request timed out (300s)' });
+    return result;
   }
 
   public get modelId(): string { return this.config.modelId; }

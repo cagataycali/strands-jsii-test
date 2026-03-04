@@ -1,0 +1,17 @@
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 05:46:25  Samples:  579
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 14.001    CPU time: 1.145
+/   _/                      v5.1.2
+
+Program: /Users/cagatay/strands-jsii/benchmarks/bench_native.py
+
+14.000 <module>  bench_native.py:1
+└─ 13.990 run_benchmark  bench_native.py:40
+   ├─ 13.351 Agent.__call__  strands/agent/agent.py:384
+   │  └─ 13.351 run_async  strands/_async.py:12
+   │     └─ 13.350 Future.result  concurrent/futures/_base.py:428
+   │        └─ 13.350 Condition.wait  threading.py:327
+   │           └─ 13.350 lock.acquire  <built-in>
+   └─ 0.503 <module>  strands/__init__.py:1
+         [7 frames hidden]  strands, boto3
+

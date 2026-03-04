@@ -1,0 +1,88 @@
+         13784 function calls (13504 primitive calls) in 17.480 seconds
+
+   Ordered by: cumulative time
+   List reduced from 221 to 80 due to restriction <80>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000   17.480   17.480 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands_jsii/__init__.py:7907(__call__)
+        1    0.000    0.000   17.480   17.480 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands_jsii/__init__.py:5584(invoke)
+        1    0.000    0.000   17.480   17.480 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:147(wrapped)
+        1    0.000    0.000   17.480   17.480 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:394(invoke)
+       51    0.001    0.000   17.460    0.342 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:320(send)
+       51    0.000    0.000   17.425    0.342 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:249(_next_message)
+       51   17.419    0.342   17.419    0.342 {method 'readline' of '_io.BufferedReader' objects}
+        1    0.000    0.000   14.526   14.526 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:379(invoke)
+        1    0.000    0.000    2.954    2.954 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:256(_callback_till_result)
+       50    0.000    0.000    2.934    0.059 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:438(sync_complete)
+       50    0.000    0.000    2.934    0.059 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:400(sync_complete)
+     15/9    0.000    0.000    0.030    0.003 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/dispatch.py:120(dispatch_without_caching)
+   103/52    0.000    0.000    0.030    0.001 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/converters.py:587(structure)
+     10/7    0.000    0.000    0.028    0.004 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/dispatch.py:60(dispatch)
+        2    0.000    0.000    0.026    0.013 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/converters.py:1303(gen_structure_attrs_fromdict)
+        2    0.000    0.000    0.026    0.013 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/gen/__init__.py:695(make_dict_structure_fn)
+        2    0.002    0.001    0.026    0.013 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/gen/__init__.py:294(make_dict_structure_fn_from_attrs)
+        3    0.023    0.008    0.023    0.008 {built-in method builtins.compile}
+       51    0.000    0.000    0.020    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/converters.py:695(structure_attrs_union)
+       50    0.000    0.000    0.019    0.000 <cattrs generated structure jsii._kernel.providers.process._CallbackResponse>:1(structure__CallbackResponse)
+       50    0.001    0.000    0.019    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:210(_handle_callback)
+       50    0.000    0.000    0.019    0.000 <cattrs generated structure jsii._kernel.types.Callback>:1(structure_Callback)
+   100/50    0.000    0.000    0.019    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/converters.py:898(_structure_optional)
+      100    0.000    0.000    0.015    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/inspect.py:3384(signature)
+      100    0.000    0.000    0.015    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/inspect.py:3105(from_callable)
+  150/100    0.003    0.000    0.015    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/inspect.py:2498(_signature_from_callable)
+      100    0.004    0.000    0.010    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/inspect.py:2394(_signature_from_function)
+       50    0.001    0.000    0.009    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/strands_jsii/__init__.py:7959(handle)
+      151    0.001    0.000    0.008    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/__init__.py:304(loads)
+      151    0.000    0.000    0.005    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/decoder.py:340(decode)
+      151    0.001    0.000    0.004    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/decoder.py:351(raw_decode)
+      203    0.002    0.000    0.003    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:129(ohook)
+      101    0.000    0.000    0.003    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/__init__.py:185(dumps)
+   102/51    0.000    0.000    0.002    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/converters.py:321(unstructure)
+      101    0.000    0.000    0.002    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/encoder.py:185(encode)
+      150    0.002    0.000    0.002    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/inspect.py:3053(__init__)
+      101    0.002    0.000    0.002    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/encoder.py:207(iterencode)
+      150    0.001    0.000    0.002    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/inspect.py:2765(__init__)
+       15    0.000    0.000    0.001    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/functools.py:844(dispatch)
+      100    0.001    0.000    0.001    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/inspect.py:176(get_annotations)
+     2396    0.001    0.000    0.001    0.000 {built-in method builtins.isinstance}
+        1    0.000    0.000    0.001    0.001 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/converters.py:1261(gen_unstructure_attrs_fromdict)
+        1    0.000    0.000    0.001    0.001 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/gen/__init__.py:222(make_dict_unstructure_fn)
+        8    0.000    0.000    0.001    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/functools.py:800(_find_impl)
+      819    0.001    0.000    0.001    0.000 {method 'keys' of 'dict' objects}
+        1    0.000    0.000    0.001    0.001 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/gen/__init__.py:70(make_dict_unstructure_fn_from_attrs)
+        8    0.000    0.000    0.001    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/functools.py:758(_compose_mro)
+      319    0.001    0.000    0.001    0.000 {method 'get' of 'dict' objects}
+       51    0.000    0.000    0.001    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/providers/process.py:106(unstructurer)
+      190    0.001    0.000    0.001    0.000 {method 'append' of 'list' objects}
+       51    0.000    0.000    0.001    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/converters.py:611(unstructure_attrs_asdict)
+       50    0.000    0.000    0.001    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/inspect.py:2116(_signature_bound_method)
+       50    0.000    0.000    0.001    0.000 <cattrs generated structure jsii._kernel.types.InvokeRequest>:1(structure_InvokeRequest)
+       50    0.000    0.000    0.001    0.000 <cattrs generated unstructure jsii._kernel.providers.process._CompleteRequest>:1(unstructure__CompleteRequest)
+        4    0.000    0.000    0.001    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/gen/_shared.py:16(find_structure_handler)
+       37    0.000    0.000    0.001    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/_compat.py:178(is_subclass)
+    85/77    0.000    0.000    0.001    0.000 {built-in method builtins.issubclass}
+        9    0.000    0.000    0.001    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/_compat.py:406(is_mapping)
+      6/3    0.000    0.000    0.001    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/functools.py:713(_c3_mro)
+        4    0.000    0.000    0.001    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/converters.py:591(get_structure_hook)
+       51    0.001    0.000    0.001    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/decoder.py:292(__init__)
+    47/20    0.000    0.000    0.001    0.000 <frozen abc>:121(__subclasscheck__)
+    47/20    0.000    0.000    0.000    0.000 {built-in method _abc._abc_subclasscheck}
+       50    0.000    0.000    0.000    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/inspect.py:3121(replace)
+      252    0.000    0.000    0.000    0.000 {method 'match' of 're.Pattern' objects}
+      166    0.000    0.000    0.000    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/typing.py:1785(__hash__)
+       50    0.000    0.000    0.000    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/decoder.py:31(__init__)
+    52/51    0.000    0.000    0.000    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:156(_make_reference_for_native)
+      100    0.000    0.000    0.000    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/inspect.py:766(unwrap)
+      150    0.000    0.000    0.000    0.000 {method 'isidentifier' of 'str' objects}
+      633    0.000    0.000    0.000    0.000 {built-in method builtins.getattr}
+       51    0.000    0.000    0.000    0.000 {method 'flush' of '_io.BufferedWriter' objects}
+       51    0.000    0.000    0.000    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/cattrs/disambiguators.py:164(dis_func)
+       51    0.000    0.000    0.000    0.000 /Users/cagatay/devduck/.venv/lib/python3.13/site-packages/jsii/_kernel/__init__.py:133(_recursize_dereference)
+       51    0.000    0.000    0.000    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/__init__.py:248(detect_encoding)
+      110    0.000    0.000    0.000    0.000 {method 'join' of 'str' objects}
+        6    0.000    0.000    0.000    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/functools.py:686(_c3_merge)
+      175    0.000    0.000    0.000    0.000 {built-in method builtins.hasattr}
+      150    0.000    0.000    0.000    0.000 {method '__contains__' of 'frozenset' objects}
+       16    0.000    0.000    0.000    0.000 /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/typing.py:1370(__getattr__)
+
+

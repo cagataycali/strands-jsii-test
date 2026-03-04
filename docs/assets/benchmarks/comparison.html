@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Strands SDK Benchmark — Native vs JSII</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1b26; color: #c0caf5; padding: 2rem; }
+    h1 { color: #7aa2f7; margin-bottom: 0.5rem; }
+    h2 { color: #bb9af7; margin: 1.5rem 0 0.5rem; }
+    .meta { color: #565f89; margin-bottom: 2rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th { background: #24283b; padding: 12px; text-align: left; border-bottom: 2px solid #414868; }
+    td { padding: 10px 12px; border-bottom: 1px solid #292e42; }
+    tr:hover { background: #24283b; }
+    .legend { display: flex; gap: 1.5rem; margin: 1rem 0; }
+    .legend-item { display: flex; align-items: center; gap: 0.5rem; }
+    .legend-color { width: 16px; height: 16px; border-radius: 3px; }
+    .card { background: #24283b; border-radius: 8px; padding: 1.5rem; margin: 1rem 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .number { font-size: 2rem; font-weight: bold; color: #7aa2f7; }
+    .label { color: #565f89; font-size: 0.9rem; }
+    iframe { width: 100%; height: 600px; border: 1px solid #414868; border-radius: 8px; margin: 1rem 0; }
+    a { color: #7aa2f7; }
+  </style>
+</head>
+<body>
+  <h1>🔬 Strands SDK Benchmark</h1>
+  <div class="meta">
+    <strong>strands-agents</strong> (native Python) vs <strong>strands-jsii</strong> (JSII bindings) — 
+    Prompt: "say hello 50 times." — 2026-03-04T05:46:25
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Native Invoke Time</div>
+      <div class="number">13.350s</div>
+    </div>
+    <div class="card">
+      <div class="label">JSII Invoke Time</div>
+      <div class="number">15.396s</div>
+    </div>
+    <div class="card">
+      <div class="label">Native Memory Peak</div>
+      <div class="number">1.3 MB</div>
+    </div>
+    <div class="card">
+      <div class="label">JSII Memory Peak</div>
+      <div class="number">0.3 MB</div>
+    </div>
+  </div>
+
+  <h2>📊 Detailed Comparison</h2>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-color" style="background:#339af0"></div> Native</div>
+    <div class="legend-item"><div class="legend-color" style="background:#f06595"></div> JSII</div>
+  </div>
+  
+  <table>
+    <thead>
+      <tr><th>Metric</th><th>Native</th><th>JSII</th><th>Verdict</th><th>Visual</th></tr>
+    </thead>
+    <tbody>
+      
+        <tr>
+          <td><strong>Import Time</strong></td>
+          <td>0.5033 s</td>
+          <td>0.3595 s</td>
+          <td><span style="background:#51cf66;padding:2px 8px;border-radius:4px;color:#000;font-size:0.85em">0.71x — JSII faster</span></td>
+          <td style="width:200px">
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="background:#339af0;height:16px;width:100.0%;border-radius:3px" title="Native"></div>
+              <div style="background:#f06595;height:16px;width:71.41428486940946%;border-radius:3px" title="JSII"></div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Agent Construction</strong></td>
+          <td>0.1056 s</td>
+          <td>0.0046 s</td>
+          <td><span style="background:#51cf66;padding:2px 8px;border-radius:4px;color:#000;font-size:0.85em">0.04x — JSII faster</span></td>
+          <td style="width:200px">
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="background:#339af0;height:16px;width:100.0%;border-radius:3px" title="Native"></div>
+              <div style="background:#f06595;height:16px;width:4.375917654817957%;border-radius:3px" title="JSII"></div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Invoke Time</strong></td>
+          <td>13.3503 s</td>
+          <td>15.3956 s</td>
+          <td><span style="background:#ff6b6b;padding:2px 8px;border-radius:4px;color:#000;font-size:0.85em">1.15x — JSII slower</span></td>
+          <td style="width:200px">
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="background:#339af0;height:16px;width:86.71508859232479%;border-radius:3px" title="Native"></div>
+              <div style="background:#f06595;height:16px;width:100.0%;border-radius:3px" title="JSII"></div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Memory Peak</strong></td>
+          <td>1.3459 MB</td>
+          <td>0.3440 MB</td>
+          <td><span style="background:#51cf66;padding:2px 8px;border-radius:4px;color:#000;font-size:0.85em">0.26x — JSII faster</span></td>
+          <td style="width:200px">
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="background:#339af0;height:16px;width:100.0%;border-radius:3px" title="Native"></div>
+              <div style="background:#f06595;height:16px;width:25.55947489927255%;border-radius:3px" title="JSII"></div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Memory Delta</strong></td>
+          <td>1.0373 MB</td>
+          <td>0.2648 MB</td>
+          <td><span style="background:#51cf66;padding:2px 8px;border-radius:4px;color:#000;font-size:0.85em">0.26x — JSII faster</span></td>
+          <td style="width:200px">
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="background:#339af0;height:16px;width:100.0%;border-radius:3px" title="Native"></div>
+              <div style="background:#f06595;height:16px;width:25.52440319399815%;border-radius:3px" title="JSII"></div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Max RSS</strong></td>
+          <td>85.1094 MB</td>
+          <td>38.9844 MB</td>
+          <td><span style="background:#51cf66;padding:2px 8px;border-radius:4px;color:#000;font-size:0.85em">0.46x — JSII faster</span></td>
+          <td style="width:200px">
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="background:#339af0;height:16px;width:100.0%;border-radius:3px" title="Native"></div>
+              <div style="background:#f06595;height:16px;width:45.8050302919038%;border-radius:3px" title="JSII"></div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>User CPU Time</strong></td>
+          <td>0.6152 s</td>
+          <td>0.0459 s</td>
+          <td><span style="background:#51cf66;padding:2px 8px;border-radius:4px;color:#000;font-size:0.85em">0.07x — JSII faster</span></td>
+          <td style="width:200px">
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="background:#339af0;height:16px;width:100.0%;border-radius:3px" title="Native"></div>
+              <div style="background:#f06595;height:16px;width:7.460934896641858%;border-radius:3px" title="JSII"></div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>System CPU Time</strong></td>
+          <td>0.0562 s</td>
+          <td>0.0012 s</td>
+          <td><span style="background:#51cf66;padding:2px 8px;border-radius:4px;color:#000;font-size:0.85em">0.02x — JSII faster</span></td>
+          <td style="width:200px">
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="background:#339af0;height:16px;width:100.0%;border-radius:3px" title="Native"></div>
+              <div style="background:#f06595;height:16px;width:2.103801794105076%;border-radius:3px" title="JSII"></div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Result Length</strong></td>
+          <td>145.0000 chars</td>
+          <td>50.0000 chars</td>
+          <td><span style="background:#51cf66;padding:2px 8px;border-radius:4px;color:#000;font-size:0.85em">0.34x — JSII faster</span></td>
+          <td style="width:200px">
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="background:#339af0;height:16px;width:100.0%;border-radius:3px" title="Native"></div>
+              <div style="background:#f06595;height:16px;width:34.48275862068966%;border-radius:3px" title="JSII"></div>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+  <h2>🔥 Profiling Artifacts</h2>
+  <div class="card">
+    <p>Open these files for detailed analysis:</p>
+    <ul style="margin:1rem 0;padding-left:2rem">
+      <li><strong>Flame Graphs:</strong> Open <code>results/native/flamegraph.svg</code> and <code>results/jsii/flamegraph.svg</code></li>
+      <li><strong>Speedscope:</strong> Drag <code>results/*/profile.speedscope.json</code> into <a href="https://www.speedscope.app/">speedscope.app</a></li>
+      <li><strong>Pyinstrument:</strong> Open <code>results/*/pyinstrument.html</code> for interactive call trees</li>
+      <li><strong>VizTracer:</strong> Open <code>results/*/viztracer.html</code> for timeline visualization</li>
+      <li><strong>cProfile:</strong> <code>python -m pstats results/*/profile.prof</code></li>
+    </ul>
+  </div>
+
+  <h2>📁 File Index</h2>
+  <div class="card">
+    <pre style="color:#a9b1d6">
+benchmarks/results/
+├── native/                      # strands-agents (pure Python)
+│   ├── profile.prof             # cProfile binary
+│   ├── profile_stats.txt        # Top functions by cumulative time
+│   ├── top_functions.txt        # Top functions by total time
+│   ├── flamegraph.svg           # Flame graph (SVG)
+│   ├── profile.speedscope.json  # Speedscope-compatible profile
+│   ├── pyinstrument.html        # Interactive call tree
+│   ├── pyinstrument.txt         # Text call tree
+│   ├── viztracer.json           # VizTracer raw data
+│   ├── viztracer.html           # VizTracer timeline
+│   ├── metrics.json             # Timing/memory metrics
+│   └── result.txt               # Agent output
+├── jsii/                        # strands-jsii (JSII bindings)
+│   └── ... (same structure)
+└── comparison/
+    ├── comparison.txt            # Side-by-side text report
+    ├── comparison.json           # Machine-readable comparison
+    └── comparison.html           # This file
+    </pre>
+  </div>
+</body>
+</html>
